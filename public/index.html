@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>名片王 SaaS 工作台</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">名</div>
+      <div>
+        <strong>名片王</strong>
+        <span>SaaS Card Studio</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" data-view="dashboard" title="工作台">⌂ <span>工作台</span></button>
+      <button class="nav-item" data-view="cards" title="名片庫">▦ <span>名片庫</span></button>
+      <button class="nav-item" data-view="leads" title="名單">◎ <span>名單</span></button>
+      <button class="nav-item" data-view="settings" title="設定">⚙ <span>設定</span></button>
+    </nav>
+    <div class="plan-box">
+      <span>目前方案</span>
+      <strong>Pro 試用中</strong>
+      <small>3 張名片 · 128 次瀏覽</small>
+    </div>
+  </aside>
+
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Digital Business Card Platform</p>
+        <h1>名片王 SaaS 管理後台</h1>
+      </div>
+      <div class="top-actions">
+        <button class="icon-button" id="exportBtn" title="匯出資料">⇩</button>
+        <button class="primary-button" id="newCardBtn">新增名片</button>
+      </div>
+    </header>
+
+    <section class="view active" id="dashboard">
+      <div class="metric-grid">
+        <article class="metric">
+          <span>公開名片</span>
+          <strong id="metricCards">0</strong>
+          <small>可分享連結</small>
+        </article>
+        <article class="metric">
+          <span>總瀏覽</span>
+          <strong id="metricViews">0</strong>
+          <small>近 30 天估算</small>
+        </article>
+        <article class="metric">
+          <span>收藏 / 詢問</span>
+          <strong id="metricLeads">0</strong>
+          <small>表單與電話點擊</small>
+        </article>
+        <article class="metric">
+          <span>轉換率</span>
+          <strong id="metricRate">0%</strong>
+          <small>名單除以瀏覽</small>
+        </article>
+      </div>
+
+      <div class="ops-grid">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>用戶架構</h2>
+            <span class="storage-badge">No KV · No D1 · No R2</span>
+          </div>
+          <div class="role-grid">
+            <button class="role-card active" data-role="admin">
+              <strong>admin</strong>
+              <span>平台管理、租戶、方案、OCR 用量</span>
+            </button>
+            <button class="role-card" data-role="rent">
+              <strong>rent</strong>
+              <span>企業/店家租戶，管理成員與名片</span>
+            </button>
+            <button class="role-card" data-role="user">
+              <strong>user</strong>
+              <span>一般成員，維護自己的名片</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>拍照 OCR 建檔</h2>
+            <span class="storage-badge">GPT API Ready</span>
+          </div>
+          <div class="ocr-box">
+            <div class="liff-status" id="liffStatus">
+              <strong>LINE 登入尚未確認</strong>
+              <span>請用 LIFF 開啟，或先按登入確認身份。</span>
+            </div>
+            <div class="referral-box" id="referralBox">
+              <strong>我的推廣連結</strong>
+              <span>登入後產生，每個 user 都有自己的專屬連結。</span>
+            </div>
+            <div class="scan-actions">
+              <button class="primary-button" id="lineLoginBtn" type="button">LINE 登入</button>
+              <button class="ghost-button" id="refreshMeBtn" type="button">讀取我的資料</button>
+            </div>
+            <label class="upload-tile">
+              <input id="ocrPhotoInput" type="file" accept="image/*" capture="environment">
+              <span>選擇或拍攝名片</span>
+            </label>
+            <div class="ocr-result" id="ocrResult">
+              <strong>等待圖片</strong>
+              <span>登入後可送到 Worker，由 GPT OCR 辨識、查重、建立名片並贈送 10 點。</span>
+            </div>
+            <div class="scan-actions">
+              <button class="primary-button" id="scanCardBtn" type="button">送出掃描</button>
+              <button class="ghost-button" id="mockOcrBtn" type="button">離線填入測試</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="workspace-grid">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>名片編輯器</h2>
+            <div class="segmented" role="tablist" aria-label="版型">
+              <button class="segment active" data-theme="mint">沉穩綠</button>
+              <button class="segment" data-theme="ink">商務黑</button>
+              <button class="segment" data-theme="rose">亮點紅</button>
+            </div>
+          </div>
+          <form class="editor" id="cardForm">
+            <label>姓名<input id="nameInput" name="name" autocomplete="name"></label>
+            <label>職稱<input id="titleInput" name="title"></label>
+            <label>公司<input id="companyInput" name="company" autocomplete="organization"></label>
+            <label>電話<input id="phoneInput" name="phone" autocomplete="tel"></label>
+            <label>Email<input id="emailInput" name="email" autocomplete="email"></label>
+            <label>LINE / 社群<input id="socialInput" name="social"></label>
+            <label class="wide">一句話介紹<textarea id="bioInput" name="bio" rows="3"></textarea></label>
+            <div class="wide action-row">
+              <button class="primary-button" type="submit">儲存名片</button>
+              <button class="ghost-button" type="button" id="duplicateBtn">複製目前名片</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="preview-zone">
+          <div class="phone-frame">
+            <article class="business-card theme-mint" id="cardPreview">
+              <div class="card-top">
+                <div class="avatar" id="avatarPreview">王</div>
+                <span class="status">公開</span>
+              </div>
+              <div>
+                <h2 id="previewName">王小明</h2>
+                <p id="previewRole">業務總監 · 名片王科技</p>
+                <p id="previewBio">用一張可追蹤、可更新、可收單的數位名片，替業務團隊建立一致的第一印象。</p>
+              </div>
+              <div class="contact-list">
+                <a id="previewPhone" href="#">電話</a>
+                <a id="previewEmail" href="#">Email</a>
+                <a id="previewSocial" href="#">LINE</a>
+              </div>
+              <div class="qr-block">
+                <div class="qr-grid" aria-label="QR code preview"></div>
+                <span id="shareSlug">card/wang</span>
+              </div>
+            </article>
+          </div>
+          <div class="share-panel">
+            <h2>公開分享頁</h2>
+            <p id="shareText">https://cardking.local/card/wang</p>
+            <div class="scan-actions">
+              <button class="primary-button" id="publishCardBtn" type="button">發布公開頁</button>
+              <button class="ghost-button" id="copyShareBtn" type="button">複製連結</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="view" id="cards">
+      <div class="section-head">
+        <h2>名片庫</h2>
+        <button class="primary-button" id="newCardBtn2">新增名片</button>
+      </div>
+      <div class="card-list" id="cardList"></div>
+    </section>
+
+    <section class="view" id="leads">
+      <div class="section-head">
+        <h2>名單與互動</h2>
+        <button class="ghost-button" id="addLeadBtn">新增測試名單</button>
+      </div>
+      <div class="lead-table" id="leadTable"></div>
+    </section>
+
+    <section class="view" id="settings">
+      <div class="settings-grid">
+        <section class="panel">
+          <h2>付費空間</h2>
+          <div class="rent-status" id="rentStatus">
+            <strong>尚未同步</strong>
+            <span>登入後可建立 PRO 個人空間或 enterprise 組織空間草稿。</span>
+          </div>
+          <label>空間名稱<input id="rentNameInput" value="我的名片王空間"></label>
+          <label>方案類型
+            <select id="rentPlanInput">
+              <option value="PRO">PRO 個人</option>
+              <option value="enterprise">enterprise 組織</option>
+            </select>
+          </label>
+          <button class="primary-button wide" id="createRentBtn" type="button">建立付費空間草稿</button>
+        </section>
+        <section class="panel">
+          <h2>SaaS 模組規劃</h2>
+          <ul class="roadmap">
+            <li><strong>第一階段</strong><span>名片 CRUD、公開頁、名單收集、匯出</span></li>
+            <li><strong>第二階段</strong><span>登入、團隊角色、品牌模板、QR code</span></li>
+            <li><strong>第三階段</strong><span>訂閱付款、CRM 串接、成效追蹤</span></li>
+          </ul>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
