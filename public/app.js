@@ -203,8 +203,9 @@ async function initLiff() {
     }
     liffProfile = await liff.getProfile();
     liffIdToken = liff.getIDToken();
-    setLiffStatus("LINE 已登入", `${liffProfile.displayName}，可以開始掃描名片。`, true);
+    setLiffStatus("LINE 已登入", `${liffProfile.displayName}，正在同步你的資料。`, true);
     await syncLineUser();
+    await loadMe();
   } catch (error) {
     setLiffStatus("LIFF 初始化失敗", error.message || "請確認是否由 LIFF URL 開啟。");
   }
@@ -562,6 +563,7 @@ document.querySelector("#lineLoginBtn").addEventListener("click", async () => {
 });
 document.querySelector("#refreshMeBtn").addEventListener("click", async () => {
   try {
+    setLiffStatus("同步中", "正在讀取你的點數、推廣連結、名片與付費空間。", true);
     await loadMe();
   } catch (error) {
     showToast(error.message);
