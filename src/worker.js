@@ -218,6 +218,9 @@ async function handleImportLineUsers(request, env) {
     await ensureJson(env, userPath(userId, "indexes/cards.json"), { cards: [] });
     await ensureJson(env, userPath(userId, "indexes/rents.json"), { rents: [] });
     await ensureJson(env, userPath(userId, "points/balance.json"), defaultBalance(userId));
+    const profileCard = buildLegacyUserProfileCard(userId, legacy, now);
+    await putJson(env, userPath(userId, `cards/${profileCard.card_id}.json`), profileCard);
+    await upsertCardIndex(env, userId, profileCard);
 
     imported.push({
       user_id: userId,
@@ -264,6 +267,45 @@ function normalizeLegacyLineUser(row) {
     created_at: cleanText(row.created_at || row.createdAt),
     migrated_at: cleanText(row.migrated_at || row.migratedAt),
     raw: row
+  };
+}
+
+function buildLegacyUserProfileCard(userId, legacy, now) {
+  const cardId = `legacy_profile_${sanitizeId(legacy.legacy_row_id || legacy.line_user_id)}`;
+  const fields = {
+    name: legacy.name || legacy.line_user_id,
+    title: legacy.industry || "",
+    company: "",
+    phone: legacy.phone || "",
+    email: "",
+    line_id: legacy.line_user_id,
+    website: "",
+    address: legacy.address || "",
+    service: legacy.industry || "",
+    raw_text: [legacy.industry, legacy.phone].filter(Boolean).join(" / ")
+  };
+  return {
+    card_id: cardId,
+    owner_user_id: userId,
+    visibility: "private",
+    public_slug: "",
+    source: "line_engine_user_profile",
+    fields,
+    line_card: buildLineCardRecord(fields, {
+      cardId,
+      userId,
+      source: "legacy_user_profile"
+    }),
+    reward_status: "not_eligible",
+    reward_points: 0,
+    legacy_source: {
+      system: "line-engine",
+      table: "users",
+      row_id: legacy.legacy_row_id,
+      line_user_id: legacy.line_user_id
+    },
+    created_at: legacy.created_at || now,
+    updated_at: now
   };
 }
 
