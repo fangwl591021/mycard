@@ -230,7 +230,7 @@ async function handleImportLineUsers(request, env) {
     });
   }
 
-  await putJson(env, `imports/line-engine/users-${Date.now()}.json`, {
+  await putJson(env, appPath(env, `imports/line-engine/users-${Date.now()}.json`), {
     imported_at: now,
     source: "line-engine.actmaster_db.users",
     total_rows: rows.length,
@@ -1042,19 +1042,26 @@ async function wasabiError(response, code) {
 }
 
 function userPath(userId, path) {
-  return `users/${sanitizeId(userId)}/${path.replace(/^\/+/, "")}`;
+  return appPath(null, `users/${sanitizeId(userId)}/${path.replace(/^\/+/, "")}`);
 }
 
 function rentPath(rentId, path) {
-  return `rents/${sanitizeId(rentId)}/${path.replace(/^\/+/, "")}`;
+  return appPath(null, `rents/${sanitizeId(rentId)}/${path.replace(/^\/+/, "")}`);
 }
 
 function referralCodePath(refCode) {
-  return `referrals/codes/${sanitizeRefCode(refCode)}.json`;
+  return appPath(null, `referrals/codes/${sanitizeRefCode(refCode)}.json`);
 }
 
 function publicCardPath(slug) {
-  return `public/cards/${sanitizeSlug(slug)}.json`;
+  return appPath(null, `public/cards/${sanitizeSlug(slug)}.json`);
+}
+
+function appPath(env, path) {
+  const rawPrefix = env?.WASABI_BASE_PREFIX || "tonyuse";
+  const prefix = String(rawPrefix || "").replace(/^\/+|\/+$/g, "");
+  const cleanPath = String(path || "").replace(/^\/+/, "");
+  return prefix ? `${prefix}/${cleanPath}` : cleanPath;
 }
 
 function sanitizeRefCode(value) {
