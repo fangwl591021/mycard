@@ -320,7 +320,7 @@ h2 {
 
 .card-row {
   display: grid;
-  grid-template-columns: 1.2fr .9fr .8fr 1.3fr auto;
+  grid-template-columns: minmax(230px, 1.2fr) minmax(180px, 1fr) minmax(160px, .85fr) minmax(120px, .7fr) minmax(180px, 1fr) auto;
   gap: 12px;
   align-items: center;
   padding: 12px 14px;
@@ -354,9 +354,48 @@ h2 {
   -webkit-box-orient: vertical;
 }
 
+.card-row-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.card-row-thumb,
+.card-row-mark {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 8px;
+}
+
+.card-row-thumb {
+  object-fit: cover;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.card-row-mark {
+  display: grid;
+  place-items: center;
+  background: #f3d77d;
+  color: #10231e;
+  font-weight: 800;
+}
+
 .row-actions {
   display: flex;
   gap: 8px;
+}
+
+.card-list-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
 }
 
 .metric {
@@ -770,9 +809,7 @@ select:focus {
 }
 
 .card-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 14px;
+  display: block;
 }
 
 .mini-card {
@@ -879,6 +916,15 @@ select:focus {
     padding: 0;
   }
 
+  .card-row {
+    grid-template-columns: minmax(220px, 1.25fr) minmax(170px, 1fr) minmax(150px, .8fr) minmax(160px, 1fr) auto;
+  }
+
+  .card-row > span:nth-child(4),
+  .card-row-head > span:nth-child(4) {
+    display: none;
+  }
+
   .workspace-grid,
   .ops-grid,
   .metric-grid {
@@ -906,6 +952,34 @@ select:focus {
 
   .app-shell {
     padding: 18px;
+  }
+
+  .card-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .card-toolbar input {
+    max-width: none;
+    width: 100%;
+  }
+
+  .card-row,
+  .card-row-head {
+    grid-template-columns: 1fr;
+  }
+
+  .card-row-head {
+    display: none;
+  }
+
+  .card-row > span:nth-child(4),
+  .card-row-head > span:nth-child(4) {
+    display: block;
+  }
+
+  .row-actions {
+    justify-content: flex-start;
   }
 
   .topbar,

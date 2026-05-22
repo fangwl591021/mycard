@@ -30,6 +30,8 @@ let liffProfile = null;
 let liffIdToken = "";
 let selectedOcrFile = null;
 let cardSearchQuery = "";
+let cardListPage = 1;
+const CARD_PAGE_SIZE = 10;
 
 const form = document.querySelector("#cardForm");
 const toast = document.querySelector("#toast");
@@ -181,8 +183,9 @@ function renderCardList() {
   const cards = query
     ? state.cards.filter((card) => buildCardSearchText(card).includes(query))
     : state.cards;
+  const visibleCards = cards.slice(0, cardListPage * CARD_PAGE_SIZE);
   const countText = document.querySelector("#cardCountText");
-  if (countText) countText.textContent = `${cards.length} / ${state.cards.length} 張名片`;
+  if (countText) countText.textContent = `顯示 ${visibleCards.length} / ${cards.length} 張名片`;
   if (!cards.length) {
     list.innerHTML = `<div class="empty-row">沒有符合條件的名片。</div>`;
     return;
@@ -191,24 +194,35 @@ function renderCardList() {
   header.className = "card-row card-row-head";
   header.innerHTML = `
     <span>名片</span>
+    <span>服務 / 標籤</span>
     <span>聯絡</span>
     <span>CRM</span>
     <span>下一步</span>
     <span>操作</span>
   `;
   list.appendChild(header);
-  cards.forEach((card) => {
+  visibleCards.forEach((card) => {
     const item = document.createElement("article");
     item.className = "card-row";
     const subtitle = [card.title, card.company].filter(Boolean).join(" · ");
+    const thumb = card.ecard_img_url
+      ? `<img class="card-row-thumb" src="${escapeHtml(card.ecard_img_url)}" alt="">`
+      : `<span class="card-row-mark">${escapeHtml((card.name || "?").slice(0, 1))}</span>`;
     item.innerHTML = `
+      <span class="card-row-person">
+        ${thumb}
+        <span>
+          <strong>${escapeHtml(card.name || "未命名")}</strong>
+          <small>${escapeHtml(subtitle)}</small>
+        </span>
+      </span>
       <span>
-        <strong>${escapeHtml(card.name || "未命名")}</strong>
-        <small>${escapeHtml(subtitle)}</small>
+        ${escapeHtml(card.service || card.bio || "-")}
+        <small>${escapeHtml(card.tags || "")}</small>
       </span>
       <span>
         ${escapeHtml(card.phone || "-")}
-        <small>${escapeHtml(card.email || card.social || "")}</small>
+        <small>${escapeHtml(card.email || card.company_phone || card.social || "")}</small>
       </span>
       <span>
         ${escapeHtml(card.crm_status || "-")}
@@ -225,6 +239,15 @@ function renderCardList() {
     `;
     list.appendChild(item);
   });
+  if (visibleCards.length < cards.length) {
+    const footer = document.createElement("div");
+    footer.className = "card-list-footer";
+    footer.innerHTML = `
+      <span>還有 ${cards.length - visibleCards.length} 張</span>
+      <button class="ghost-button" id="loadMoreCardsBtn" type="button">載入更多</button>
+    `;
+    list.appendChild(footer);
+  }
 }
 
 function buildCardSearchText(card) {
@@ -235,6 +258,9 @@ function buildCardSearchText(card) {
     card.phone,
     card.email,
     card.social,
+    card.company_phone,
+    card.service,
+    card.tags,
     card.crm_status,
     card.crm_type,
     card.crm_next_action,
@@ -362,27 +388,42 @@ async function loadRemoteCards(token) {
 function remoteCardToLocalCard(card) {
   const fieldsFromCard = card.fields || {};
   const lineCard = card.line_card || {};
-  const cfg = parseEcardConfig(lineCard["自訂名片設定"]);
+  const cfg = card.ecard_config || parseEcardConfig(
+    lineCard["自訂名片設定"] ||
+    lineCard["電子名片設定"] ||
+    lineCard["自訂版面"] ||
+    lineCard["名片設定"]
+  );
   return {
     id: card.card_id,
     theme: "mint",
     visibility: card.visibility || "private",
     public_slug: card.public_slug || "",
     public_url: card.public_slug ? `${location.origin}/card/${card.public_slug}` : "",
-    ecard_img_url: cfg.imgUrl || lineCard["名片圖檔"] || "",
+    ecard_img_url: cfg.imgUrl || card.source_image_url || lineCard["名片圖檔"] || lineCard["圖片網址"] || "",
     name: lineCard["姓名"] || fieldsFromCard.name || card.name || "未命名",
-    title: lineCard["職稱"] || fieldsFromCard.title || "",
+    english_name: lineCard["英文名"] || fieldsFromCard.english_name || card.english_name || "",
+    title: lineCard["職稱"] || fieldsFromCard.title || card.title || "",
+    department: lineCard["部門"] || fieldsFromCard.department || card.department || "",
     company: lineCard["公司名稱"] || fieldsFromCard.company || card.company || "",
-    phone: lineCard["手機號碼"] || fieldsFromCard.phone || "",
+    tax_id: lineCard["統一編號"] || fieldsFromCard.tax_id || card.tax_id || "",
+    phone: lineCard["手機號碼"] || fieldsFromCard.phone || card.phone || "",
+    company_phone: lineCard["公司電話"] || fieldsFromCard.company_phone || card.company_phone || "",
+    extension: lineCard["分機"] || fieldsFromCard.extension || card.extension || "",
+    fax: lineCard["傳真"] || fieldsFromCard.fax || card.fax || "",
     email: lineCard["電子郵件"] || fieldsFromCard.email || "",
+    website: lineCard["公司網址"] || fieldsFromCard.website || card.website || "",
     social: lineCard["社群帳號"] || fieldsFromCard.line_id || "",
-    bio: cfg.desc || lineCard["服務項目"] || (fieldsFromCard.raw_text ? `OCR 原文：${fieldsFromCard.raw_text}` : "由拍照 OCR 建立的私人名片。"),
+    address: lineCard["公司地址"] || fieldsFromCard.address || card.address || "",
+    service: lineCard["服務項目"] || fieldsFromCard.service || card.service || "",
+    tags: lineCard["標籤"] || fieldsFromCard.tags || card.tags || "",
+    bio: cfg.desc || lineCard["服務項目"] || card.service || (fieldsFromCard.raw_text ? `OCR 原文：${fieldsFromCard.raw_text}` : "由拍照 OCR 建立的私人名片。"),
     views: 0,
-    leads: 0
-    ,
+    leads: 0,
     crm_status: card.crm_status || card.crm?.status || "",
     crm_type: card.crm_type || card.crm?.type || "",
     crm_next_action: card.crm_next_action || card.crm?.next_action || "",
+    crm_next_followup_at: card.crm_next_followup_at || card.crm?.next_followup_at || "",
     crm_ai_suggestion: card.crm_ai_suggestion || card.crm?.ai_suggestion || ""
   };
 }
@@ -398,30 +439,48 @@ function parseEcardConfig(raw) {
 
 function localCardToPayload(card) {
   const cfg = getLocalEcardConfig(card);
+  const persisted = isPersistedCardId(card.id);
   return {
-    card_id: card.id?.startsWith("card_") ? card.id : undefined,
+    card_id: persisted ? card.id : undefined,
     visibility: card.visibility || "private",
     public_slug: card.public_slug || "",
     fields: {
       name: card.name || "",
+      english_name: card.english_name || "",
       title: card.title || "",
+      department: card.department || "",
       company: card.company || "",
+      tax_id: card.tax_id || "",
       phone: card.phone || "",
+      company_phone: card.company_phone || "",
+      extension: card.extension || "",
+      fax: card.fax || "",
       email: card.email || "",
       line_id: card.social || "",
-      website: "",
-      address: "",
-      service: card.bio || "",
+      website: card.website || "",
+      address: card.address || "",
+      service: card.service || card.bio || "",
+      tags: card.tags || "",
       raw_text: card.bio || ""
     },
+    ecard_config: cfg,
     line_card: {
       "姓名": card.name || "",
+      "英文名": card.english_name || "",
       "職稱": card.title || "",
+      "部門": card.department || "",
       "公司名稱": card.company || "",
+      "統一編號": card.tax_id || "",
       "手機號碼": card.phone || "",
+      "公司電話": card.company_phone || "",
+      "分機": card.extension || "",
+      "傳真": card.fax || "",
       "電子郵件": card.email || "",
+      "公司網址": card.website || "",
       "社群帳號": card.social || "",
-      "服務項目": card.bio || "",
+      "公司地址": card.address || "",
+      "服務項目": card.service || card.bio || "",
+      "標籤": card.tags || "",
       "名片圖檔": cfg.imgUrl || "",
       "自訂名片設定": JSON.stringify(cfg)
     }
@@ -476,7 +535,7 @@ async function createRentDraft() {
 async function saveActiveCardRemote() {
   const token = await getLineToken();
   const card = activeCard();
-  const isRemote = card.id?.startsWith("card_");
+  const isRemote = isPersistedCardId(card.id);
   const response = await fetch(`${apiBase}/api/cards${isRemote ? `/${encodeURIComponent(card.id)}` : ""}`, {
     method: isRemote ? "PUT" : "POST",
     headers: {
@@ -498,7 +557,7 @@ async function saveActiveCardRemote() {
 
 async function publishActiveCard() {
   let card = activeCard();
-  if (!card.id?.startsWith("card_")) {
+  if (!isPersistedCardId(card.id)) {
     await saveActiveCardRemote();
     card = activeCard();
   }
@@ -525,7 +584,7 @@ async function publishActiveCard() {
 }
 
 async function deleteRemoteCard(cardId) {
-  if (!cardId?.startsWith("card_")) return;
+  if (!isPersistedCardId(cardId)) return;
   const token = await getLineToken();
   const response = await fetch(`${apiBase}/api/cards/${encodeURIComponent(cardId)}`, {
     method: "DELETE",
@@ -533,6 +592,10 @@ async function deleteRemoteCard(cardId) {
   });
   const data = await response.json();
   if (!response.ok || !data.ok) throw new Error(data.message || "刪除遠端名片失敗");
+}
+
+function isPersistedCardId(cardId) {
+  return Boolean(cardId && (cardId.startsWith("card_") || cardId.startsWith("legacy_card_")));
 }
 
 async function getLineToken(forceRefresh = false) {
@@ -713,6 +776,7 @@ document.querySelectorAll(".nav-item").forEach((button) => {
 
 document.querySelector("#cardSearchInput")?.addEventListener("input", (event) => {
   cardSearchQuery = event.target.value || "";
+  cardListPage = 1;
   renderCardList();
 });
 
@@ -757,6 +821,11 @@ document.querySelector("#createRentBtn").addEventListener("click", async () => {
 });
 
 document.querySelector("#cardList").addEventListener("click", async (event) => {
+  if (event.target.id === "loadMoreCardsBtn") {
+    cardListPage += 1;
+    renderCardList();
+    return;
+  }
   const editId = event.target.dataset.edit;
   const deleteId = event.target.dataset.delete;
   if (editId) {

@@ -734,6 +734,7 @@ async function handleUpsertManualCard(request, env, routeCardId = "") {
     public_slug: existing?.public_slug || body.public_slug || "",
     source: existing?.source || "manual",
     fields: normalizedFields,
+    ecard_config: existing?.ecard_config || body.ecard_config || buildDefaultEcardConfig(normalizedFields),
     line_card: mergeLineCardRecord(buildLineCardRecord(normalizedFields, {
       cardId,
       userId: user.user_id,
@@ -909,6 +910,7 @@ async function handleCardScan(request, env) {
     reward_status: "granted",
     reward_points: CARD_REWARD_POINTS,
     fields: normalizeParsedCard(parsed),
+    ecard_config: buildDefaultEcardConfig(normalizeParsedCard(parsed), { source: "ocr" }),
     line_card: buildLineCardRecord(normalizeParsedCard(parsed), {
       cardId,
       userId: user.user_id,
@@ -960,11 +962,23 @@ async function upsertCardIndex(env, userId, card) {
     name: card.fields.name || "",
     company: card.fields.company || "",
     title: card.fields.title || "",
+    english_name: card.fields.english_name || "",
+    department: card.fields.department || "",
+    tax_id: card.fields.tax_id || "",
     phone: card.fields.phone || "",
+    company_phone: card.fields.company_phone || "",
+    extension: card.fields.extension || "",
+    fax: card.fields.fax || "",
     email: card.fields.email || "",
+    website: card.fields.website || "",
+    line_id: card.fields.line_id || "",
+    address: card.fields.address || "",
+    service: card.fields.service || "",
+    tags: card.fields.tags || "",
     visibility: card.visibility,
     public_slug: card.public_slug || "",
     source: card.source || "",
+    ecard_config: card.ecard_config || null,
     crm_status: card.crm?.status || "",
     crm_type: card.crm?.type || "",
     crm_next_action: card.crm?.next_action || "",
@@ -1049,7 +1063,7 @@ async function recognizeBusinessCard(env, bytes, contentType) {
         content: [
           {
             type: "input_text",
-            text: "請辨識這張紙本名片，僅回傳 JSON。欄位包含 name,title,company,phone,email,line_id,website,address,raw_text。無法辨識的欄位用空字串。"
+            text: "請辨識這張紙本名片，僅回傳 JSON。欄位沿用舊系統名片規格，包含 name,english_name,title,department,company,tax_id,phone,company_phone,extension,fax,email,line_id,website,address,service,tags,raw_text。無法辨識的欄位用空字串。"
           },
           {
             type: "input_image",
@@ -1066,16 +1080,24 @@ async function recognizeBusinessCard(env, bytes, contentType) {
             additionalProperties: false,
             properties: {
               name: { type: "string" },
+              english_name: { type: "string" },
               title: { type: "string" },
+              department: { type: "string" },
               company: { type: "string" },
+              tax_id: { type: "string" },
               phone: { type: "string" },
+              company_phone: { type: "string" },
+              extension: { type: "string" },
+              fax: { type: "string" },
               email: { type: "string" },
               line_id: { type: "string" },
               website: { type: "string" },
               address: { type: "string" },
+              service: { type: "string" },
+              tags: { type: "string" },
               raw_text: { type: "string" }
             },
-            required: ["name", "title", "company", "phone", "email", "line_id", "website", "address", "raw_text"]
+            required: ["name", "english_name", "title", "department", "company", "tax_id", "phone", "company_phone", "extension", "fax", "email", "line_id", "website", "address", "service", "tags", "raw_text"]
           }
         }
       }
@@ -1116,13 +1138,21 @@ async function grantPoints(env, userId, points, cardId) {
 function normalizeParsedCard(parsed) {
   return {
     name: cleanText(parsed.name),
+    english_name: cleanText(parsed.english_name),
     title: cleanText(parsed.title),
+    department: cleanText(parsed.department),
     company: cleanText(parsed.company),
+    tax_id: cleanText(parsed.tax_id),
     phone: cleanText(parsed.phone),
+    company_phone: cleanText(parsed.company_phone),
+    extension: cleanText(parsed.extension),
+    fax: cleanText(parsed.fax),
     email: cleanText(parsed.email).toLowerCase(),
     line_id: cleanText(parsed.line_id),
     website: cleanText(parsed.website),
     address: cleanText(parsed.address),
+    service: cleanText(parsed.service),
+    tags: cleanText(parsed.tags),
     raw_text: cleanText(parsed.raw_text)
   };
 }
@@ -1130,13 +1160,21 @@ function normalizeParsedCard(parsed) {
 function normalizeManualFields(fields) {
   return {
     name: cleanText(fields.name),
+    english_name: cleanText(fields.english_name),
     title: cleanText(fields.title),
+    department: cleanText(fields.department),
     company: cleanText(fields.company),
+    tax_id: cleanText(fields.tax_id),
     phone: cleanText(fields.phone),
+    company_phone: cleanText(fields.company_phone),
+    extension: cleanText(fields.extension),
+    fax: cleanText(fields.fax),
     email: cleanText(fields.email).toLowerCase(),
     line_id: cleanText(fields.line_id || fields.social),
     website: cleanText(fields.website),
     address: cleanText(fields.address),
+    service: cleanText(fields.service),
+    tags: cleanText(fields.tags),
     raw_text: cleanText(fields.raw_text || fields.bio)
   };
 }
@@ -1168,7 +1206,7 @@ function buildLineCardRecord(fields, options = {}) {
     "公司網址": fields.website || "",
     "社群帳號": fields.line_id || "",
     "公司地址": fields.address || "",
-    "服務項目": fields.raw_text || fields.service || fields.title || fields.company || "",
+    "服務項目": fields.service || fields.raw_text || fields.title || fields.company || "",
     "標籤": fields.tags || "",
     "建檔人/備註": options.source === "ocr" ? "由 mycard GPT OCR 建立" : "由 mycard 手動建立",
     "名片圖檔": cfg.imgUrl || "",
@@ -1217,6 +1255,7 @@ function buildPublicCard(card) {
     card_id: card.card_id,
     public_slug: card.public_slug,
     fields: card.fields,
+    ecard_config: card.ecard_config || null,
     line_card: card.line_card || buildLineCardRecord(card.fields || {}, {
       cardId: card.card_id,
       userId: card.owner_user_id,
@@ -1277,7 +1316,7 @@ function renderPublicCardHtml(card) {
 
 function parseCardConfig(card) {
   try {
-    const raw = card?.["自訂名片設定"] || "{}";
+    const raw = card?.["自訂名片設定"] || card?.["電子名片設定"] || card?.["自訂版面"] || card?.["名片設定"] || "{}";
     const cfg = typeof raw === "object" ? raw : JSON.parse(String(raw));
     return cfg && typeof cfg === "object" ? cfg : {};
   } catch {
