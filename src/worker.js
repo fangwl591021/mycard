@@ -33,6 +33,10 @@ export default {
         });
       }
 
+      if (url.pathname === "/api/admin/import/line-users" && request.method === "POST") {
+        return await handleImportLineUsers(request, env);
+      }
+
       if (url.pathname.startsWith("/r/") && request.method === "GET") {
         return handleReferralLanding(request, env);
       }
@@ -42,7 +46,7 @@ export default {
       }
 
       if (url.pathname === "/api/auth/line" && request.method === "POST") {
-        return handleLineAuth(request, env);
+        return await handleLineAuth(request, env);
       }
 
       if (url.pathname === "/api/me" && request.method === "GET") {
@@ -53,42 +57,42 @@ export default {
       }
 
       if (url.pathname === "/api/cards" && request.method === "GET") {
-        return handleListCards(request, env);
+        return await handleListCards(request, env);
       }
 
       if (url.pathname === "/api/cards" && request.method === "POST") {
-        return handleUpsertManualCard(request, env);
+        return await handleUpsertManualCard(request, env);
       }
 
       const cardRoute = url.pathname.match(/^\/api\/cards\/([^/]+)$/);
       if (cardRoute && request.method === "PUT") {
-        return handleUpsertManualCard(request, env, cardRoute[1]);
+        return await handleUpsertManualCard(request, env, cardRoute[1]);
       }
 
       if (cardRoute && request.method === "DELETE") {
-        return handleDeleteCard(request, env, cardRoute[1]);
+        return await handleDeleteCard(request, env, cardRoute[1]);
       }
 
       const publishRoute = url.pathname.match(/^\/api\/cards\/([^/]+)\/publish$/);
       if (publishRoute && request.method === "POST") {
-        return handlePublishCard(request, env, publishRoute[1]);
+        return await handlePublishCard(request, env, publishRoute[1]);
       }
 
       if (url.pathname === "/api/cards/scan" && request.method === "POST") {
-        return handleCardScan(request, env);
+        return await handleCardScan(request, env);
       }
 
       if (url.pathname === "/api/rents" && request.method === "GET") {
-        return handleListRents(request, env);
+        return await handleListRents(request, env);
       }
 
       if (url.pathname === "/api/rents" && request.method === "POST") {
-        return handleCreateRentDraft(request, env);
+        return await handleCreateRentDraft(request, env);
       }
 
       return env.ASSETS.fetch(request);
     } catch (error) {
-      if (error instanceof HttpError) {
+      if (error && typeof error.status === "number") {
         return json({ ok: false, code: error.code, message: error.message }, { status: error.status });
       }
       return json({
@@ -145,6 +149,131 @@ async function handleLineAuth(request, env) {
   await ensureJson(env, userPath(user.user_id, "points/balance.json"), defaultBalance(user.user_id));
 
   return json({ ok: true, user: profile });
+}
+
+async function handleImportLineUsers(request, env) {
+  const token = request.headers.get("x-admin-migration-token") || "";
+  if (!env.MIGRATION_ADMIN_TOKEN) {
+    throw new HttpError(503, "migration_disabled", "MIGRATION_ADMIN_TOKEN is not configured");
+  }
+  if (!token || token !== env.MIGRATION_ADMIN_TOKEN) {
+    throw new HttpError(401, "migration_unauthorized", "Invalid migration token");
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const rows = Array.isArray(body.users) ? body.users : [];
+  if (!rows.length) throw new HttpError(400, "missing_users", "users must be a non-empty array");
+  if (rows.length > 500) throw new HttpError(400, "too_many_users", "import at most 500 users per request");
+
+  const now = new Date().toISOString();
+  const imported = [];
+  const skipped = [];
+
+  for (const row of rows) {
+    const legacy = normalizeLegacyLineUser(row);
+    if (!legacy.line_user_id) {
+      skipped.push({ legacy_row_id: legacy.legacy_row_id, reason: "missing_line_user_id" });
+      continue;
+    }
+
+    const userId = `line_${sanitizeId(legacy.line_user_id)}`;
+    const profileKey = userPath(userId, "profile.json");
+    const existing = await getJson(env, profileKey);
+    const refCode = existing?.ref_code || createRefCode(userId);
+    const profile = {
+      ...(existing || {}),
+      user_id: userId,
+      login_provider: existing?.login_provider || "line",
+      line_user_id: legacy.line_user_id,
+      line_display_name: existing?.line_display_name || legacy.name,
+      name: existing?.name || legacy.name || legacy.line_user_id,
+      phone: existing?.phone || legacy.phone,
+      industry: existing?.industry || legacy.industry,
+      plan: existing?.plan || "free",
+      roles: existing?.roles || ["user"],
+      ref_code: refCode,
+      referral_url: `${appBaseUrl(env)}/r/${refCode}`,
+      referred_by_user_id: existing?.referred_by_user_id || legacy.referrer_user_id,
+      referred_by_code: existing?.referred_by_code || "",
+      source: existing?.source || "line_engine_migration",
+      legacy: {
+        ...(existing?.legacy || {}),
+        line_engine: legacy
+      },
+      migrated_at: existing?.migrated_at || now,
+      created_at: existing?.created_at || legacy.created_at || now,
+      updated_at: now
+    };
+
+    await putJson(env, profileKey, profile);
+    await putJson(env, referralCodePath(refCode), {
+      ref_code: refCode,
+      owner_user_id: userId,
+      status: "active",
+      created_at: existing?.created_at || legacy.created_at || now,
+      updated_at: now
+    });
+    await ensureJson(env, userPath(userId, "indexes/card-fingerprints.json"), { fingerprints: {} });
+    await ensureJson(env, userPath(userId, "indexes/cards.json"), { cards: [] });
+    await ensureJson(env, userPath(userId, "indexes/rents.json"), { rents: [] });
+    await ensureJson(env, userPath(userId, "points/balance.json"), defaultBalance(userId));
+
+    imported.push({
+      user_id: userId,
+      line_user_id: legacy.line_user_id,
+      legacy_row_id: legacy.legacy_row_id,
+      status: existing ? "updated" : "created"
+    });
+  }
+
+  await putJson(env, `imports/line-engine/users-${Date.now()}.json`, {
+    imported_at: now,
+    source: "line-engine.actmaster_db.users",
+    total_rows: rows.length,
+    imported_count: imported.length,
+    skipped_count: skipped.length,
+    imported,
+    skipped
+  });
+
+  return json({ ok: true, imported_count: imported.length, skipped_count: skipped.length, imported, skipped });
+}
+
+function normalizeLegacyLineUser(row) {
+  return {
+    legacy_row_id: cleanText(row.row_id || row.rowId || row.userId),
+    line_user_id: cleanText(row.line_id || row.lineId || row.userId),
+    name: cleanText(row.name || row.displayName),
+    industry: cleanText(row.industry || row.title),
+    gender: cleanText(row.gender),
+    phone: cleanText(row.phone || row.mobile),
+    birthday: cleanText(row.birthday),
+    region: cleanText(row.region),
+    address: cleanText(row.address),
+    legacy_role: cleanText(row.role || "user"),
+    store_id: cleanText(row.store_id || row.storeId),
+    referrer_user_id: row.referrer_id ? `line_${sanitizeId(row.referrer_id)}` : "",
+    legacy_referrer_id: cleanText(row.referrer_id || row.referrerId),
+    legacy_network_id: cleanText(row.network_id || row.networkId),
+    point_line_id: cleanText(row.point_line_id || row.pointLineId),
+    legacy_line_id: cleanText(row.legacy_line_id || row.legacyLineId),
+    identity_source: cleanText(row.identity_source || row.identitySource),
+    points: Number(row.points || 0),
+    socials: safeJsonValue(row.socials),
+    created_at: cleanText(row.created_at || row.createdAt),
+    migrated_at: cleanText(row.migrated_at || row.migratedAt),
+    raw: row
+  };
+}
+
+function safeJsonValue(value) {
+  if (!value) return null;
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
 }
 
 function handleReferralLanding(request, env) {
@@ -1027,15 +1156,15 @@ function json(data, init = {}) {
 function corsHeaders() {
   return {
     "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
-    "access-control-allow-headers": "authorization,content-type"
+    "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS",
+    "access-control-allow-headers": "authorization,content-type,x-admin-migration-token"
   };
 }
 
-class HttpError extends Error {
+class HttpError {
   constructor(status, code, message) {
-    super(message);
     this.status = status;
     this.code = code;
+    this.message = message;
   }
 }
