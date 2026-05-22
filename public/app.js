@@ -780,14 +780,6 @@ document.querySelector("#cardSearchInput")?.addEventListener("input", (event) =>
   renderCardList();
 });
 
-document.querySelectorAll(".role-card").forEach((button) => {
-  button.addEventListener("click", () => {
-    document.querySelectorAll(".role-card").forEach((item) => item.classList.remove("active"));
-    button.classList.add("active");
-    showToast(`目前檢視：${button.dataset.role}`);
-  });
-});
-
 document.querySelector("#newCardBtn").addEventListener("click", () => createCard(false));
 document.querySelector("#newCardBtn2").addEventListener("click", () => createCard(false));
 document.querySelector("#duplicateBtn").addEventListener("click", () => createCard(true));
