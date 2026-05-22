@@ -37,6 +37,10 @@ export default {
         return await handleImportLineUsers(request, env);
       }
 
+      if (url.pathname === "/api/admin/import/status" && request.method === "GET") {
+        return await handleImportStatus(request, env);
+      }
+
       if (url.pathname.startsWith("/r/") && request.method === "GET") {
         return handleReferralLanding(request, env);
       }
@@ -241,6 +245,36 @@ async function handleImportLineUsers(request, env) {
   });
 
   return json({ ok: true, imported_count: imported.length, skipped_count: skipped.length, imported, skipped });
+}
+
+async function handleImportStatus(request, env) {
+  const token = request.headers.get("x-admin-migration-token") || "";
+  if (!env.MIGRATION_ADMIN_TOKEN) {
+    throw new HttpError(503, "migration_disabled", "MIGRATION_ADMIN_TOKEN is not configured");
+  }
+  if (!token || token !== env.MIGRATION_ADMIN_TOKEN) {
+    throw new HttpError(401, "migration_unauthorized", "Invalid migration token");
+  }
+
+  const usersPrefix = appPath(env, "users/");
+  const importsPrefix = appPath(env, "imports/line-engine/");
+  const userObjects = await listObjects(env, usersPrefix, 1000);
+  const importObjects = await listObjects(env, importsPrefix, 100);
+  const profileObjects = userObjects.filter((item) => item.key.endsWith("/profile.json"));
+  const cardObjects = userObjects.filter((item) => item.key.includes("/cards/") && item.key.endsWith(".json"));
+  return json({
+    ok: true,
+    bucket: env.WASABI_BUCKET,
+    base_prefix: env.WASABI_BASE_PREFIX || "tonyuse",
+    users_prefix: usersPrefix,
+    imports_prefix: importsPrefix,
+    profiles: profileObjects.length,
+    cards: cardObjects.length,
+    import_logs: importObjects.length,
+    sample_profiles: profileObjects.slice(0, 5).map((item) => item.key),
+    sample_cards: cardObjects.slice(0, 5).map((item) => item.key),
+    latest_import_logs: importObjects.slice(0, 5).map((item) => item.key)
+  });
 }
 
 function normalizeLegacyLineUser(row) {
@@ -979,9 +1013,31 @@ async function deleteObject(env, key) {
   return response;
 }
 
-async function signedWasabiFetch(env, method, key, body, contentType = "") {
+async function listObjects(env, prefix, maxKeys = 1000) {
+  const query = new URLSearchParams({
+    "list-type": "2",
+    prefix,
+    "max-keys": String(maxKeys)
+  });
+  const response = await signedWasabiFetch(env, "GET", "", undefined, "", query);
+  if (!response.ok) throw await wasabiError(response, "wasabi_list_failed");
+  const xml = await response.text();
+  return Array.from(xml.matchAll(/<Contents>[\s\S]*?<Key>([\s\S]*?)<\/Key>[\s\S]*?<Size>(\d+)<\/Size>[\s\S]*?<\/Contents>/g))
+    .map((match) => ({
+      key: decodeXml(match[1]),
+      size: Number(match[2] || 0)
+    }));
+}
+
+async function signedWasabiFetch(env, method, key, body, contentType = "", query = null) {
   const config = wasabiConfig(env);
-  const url = new URL(`${config.endpoint.replace(/\/$/, "")}/${config.bucket}/${encodeS3Key(key)}`);
+  const encodedKey = key ? `/${encodeS3Key(key)}` : "";
+  const url = new URL(`${config.endpoint.replace(/\/$/, "")}/${config.bucket}${encodedKey}`);
+  if (query) {
+    const params = query instanceof URLSearchParams ? query : new URLSearchParams(query);
+    params.sort();
+    url.search = params.toString();
+  }
   const now = new Date();
   const amzDate = toAmzDate(now);
   const dateStamp = amzDate.slice(0, 8);
@@ -999,7 +1055,7 @@ async function signedWasabiFetch(env, method, key, body, contentType = "") {
   const canonicalRequest = [
     method,
     url.pathname,
-    url.searchParams.toString(),
+    canonicalQueryString(url.searchParams),
     canonicalHeaders,
     signedHeaders,
     bodyHash
@@ -1020,6 +1076,23 @@ async function signedWasabiFetch(env, method, key, body, contentType = "") {
   ].join(", ");
 
   return fetch(url.toString(), { method, headers, body: method === "GET" ? undefined : body });
+}
+
+function canonicalQueryString(params) {
+  const pairs = [];
+  for (const [key, value] of params.entries()) {
+    pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+  }
+  return pairs.sort().join("&");
+}
+
+function decodeXml(value) {
+  return String(value || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'");
 }
 
 function wasabiConfig(env) {
