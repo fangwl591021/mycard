@@ -226,24 +226,28 @@ async function initLiff() {
       return;
     }
     liffProfile = await liff.getProfile();
-    liffIdToken = liff.getIDToken();
+    liffIdToken = await getLineToken(true);
     setLiffStatus("LINE 已登入", `${liffProfile.displayName}，正在同步你的資料。`, true);
     await syncLineUser();
     await loadMe();
   } catch (error) {
-    setLiffStatus("LIFF 初始化失敗", error.message || "請確認是否由 LIFF URL 開啟。");
+    if (error.code === "reauth_redirect") return;
+    setLiffStatus("LINE 資料同步失敗", error.message || "請重新整理後再登入一次。");
   }
 }
 
 async function syncLineUser() {
-  if (!liffIdToken) return;
+  const token = await getLineToken();
   const refCode = localStorage.getItem("mycard_ref") || new URLSearchParams(location.search).get("ref") || "";
   const response = await fetch(`${apiBase}/api/auth/line`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ idToken: liffIdToken, refCode })
+    body: JSON.stringify({ idToken: token, refCode })
   });
   const data = await response.json();
+  if (isExpiredLineToken(response, data)) {
+    return refreshLineLogin("LINE 登入已過期，正在重新登入。");
+  }
   if (!response.ok || !data.ok) throw new Error(data.message || "LINE 身份同步失敗");
   setReferralBox(data.user?.referral_url, data.user?.ref_code);
   return data.user;
@@ -255,6 +259,9 @@ async function loadMe() {
     headers: { authorization: `Bearer ${token}` }
   });
   const data = await response.json();
+  if (isExpiredLineToken(response, data)) {
+    return refreshLineLogin("LINE 登入已過期，正在重新登入。");
+  }
   if (!response.ok || !data.ok) throw new Error(data.message || "讀取我的資料失敗");
   const points = data.points?.balance ?? 0;
   const cards = await loadRemoteCards(token);
@@ -280,6 +287,9 @@ async function loadRemoteCards(token) {
     headers: { authorization: `Bearer ${token}` }
   });
   const data = await response.json();
+  if (isExpiredLineToken(response, data)) {
+    return refreshLineLogin("LINE 登入已過期，正在重新登入。");
+  }
   if (!response.ok || !data.ok) throw new Error(data.message || "讀取名片清單失敗");
   const remoteCards = Array.isArray(data.cards) ? data.cards : [];
   state.cards = remoteCards.map(remoteCardToLocalCard);
@@ -358,6 +368,9 @@ async function loadRents(token) {
     headers: { authorization: `Bearer ${token}` }
   });
   const data = await response.json();
+  if (isExpiredLineToken(response, data)) {
+    return refreshLineLogin("LINE 登入已過期，正在重新登入。");
+  }
   if (!response.ok || !data.ok) throw new Error(data.message || "讀取付費空間失敗");
   renderRents(data.rents || []);
   return data.rents || [];
@@ -457,18 +470,54 @@ async function deleteRemoteCard(cardId) {
   if (!response.ok || !data.ok) throw new Error(data.message || "刪除遠端名片失敗");
 }
 
-async function getLineToken() {
-  if (liffIdToken) return liffIdToken;
-  if (!window.liff) throw new Error("請用 LIFF 開啟後登入");
+async function getLineToken(forceRefresh = false) {
+  if (!window.liff) throw new Error("請使用 LIFF 開啟頁面");
   if (!liff.isLoggedIn()) {
     liff.login();
-    throw new Error("正在前往 LINE 登入");
+    throw new Error("等待重新 LINE 登入");
   }
+  if (forceRefresh) liffIdToken = "";
+  if (liffIdToken && !isDecodedTokenExpiring()) return liffIdToken;
   liffIdToken = liff.getIDToken();
   if (!liffIdToken) throw new Error("無法取得 LINE idToken");
+  if (isDecodedTokenExpiring()) {
+    return refreshLineLogin("LINE 登入已過期，正在重新登入。");
+  }
   return liffIdToken;
 }
 
+function isDecodedTokenExpiring() {
+  if (!window.liff || !liff.isLoggedIn()) return true;
+  const decoded = liff.getDecodedIDToken?.();
+  const expiresAt = Number(decoded?.exp || 0);
+  if (!expiresAt) return false;
+  return expiresAt <= Math.floor(Date.now() / 1000) + 60;
+}
+
+function isExpiredLineToken(response, data) {
+  const message = `${data?.code || ""} ${data?.message || ""}`.toLowerCase();
+  return response.status === 401 && (
+    message.includes("line_token_invalid") ||
+    message.includes("idtoken expired") ||
+    message.includes("expired")
+  );
+}
+
+function refreshLineLogin(message) {
+  liffIdToken = "";
+  setLiffStatus("LINE 登入已過期", message, false);
+  if (window.liff?.isLoggedIn?.()) {
+    try {
+      liff.logout();
+    } catch {
+      // Ignore logout failures; login below will still refresh the session.
+    }
+  }
+  liff.login({ redirectUri: location.href });
+  const error = new Error(message);
+  error.code = "reauth_redirect";
+  throw error;
+}
 function applyOcrCardToForm(card) {
   const localCard = remoteCardToLocalCard(card);
   const existingIndex = state.cards.findIndex((item) => item.id === localCard.id);
@@ -757,3 +806,4 @@ document.querySelector("#mockOcrBtn").addEventListener("click", () => {
 
 renderAll();
 initLiff();
+
