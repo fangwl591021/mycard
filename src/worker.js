@@ -49,6 +49,10 @@ export default {
         return await handleImportUsers(request, env);
       }
 
+      if (url.pathname === "/api/admin/import/owner" && request.method === "GET") {
+        return await handleImportOwner(request, env);
+      }
+
       if (url.pathname.startsWith("/r/") && request.method === "GET") {
         return handleReferralLanding(request, env);
       }
@@ -341,6 +345,32 @@ async function handleImportUsers(request, env) {
 
   const status = await getImportStatus(env);
   return json({ ok: true, ...status, users });
+}
+
+async function handleImportOwner(request, env) {
+  requireMigrationToken(request, env);
+  const url = new URL(request.url);
+  const userId = sanitizeId(url.searchParams.get("user_id") || "");
+  if (!userId) throw new HttpError(400, "missing_user_id", "user_id is required");
+
+  const index = await getJson(env, userPath(userId, "indexes/cards.json")) || { cards: [] };
+  const cards = [];
+  const limit = Math.max(1, Math.min(50, Number(url.searchParams.get("limit") || 20)));
+  for (const item of (index.cards || []).slice(0, limit)) {
+    const card = await getJson(env, userPath(userId, `cards/${sanitizeId(item.card_id)}.json`));
+    if (card) {
+      cards.push({
+        card_id: card.card_id,
+        name: card.fields?.name || "",
+        company: card.fields?.company || "",
+        title: card.fields?.title || "",
+        source: card.source || "",
+        visibility: card.visibility || "",
+        legacy_row_id: card.legacy_source?.row_id || ""
+      });
+    }
+  }
+  return json({ ok: true, user_id: userId, index_count: index.cards?.length || 0, card_count: cards.length, limit, index: index.cards || [], cards });
 }
 
 function requireMigrationToken(request, env) {
@@ -676,12 +706,17 @@ function buildReferralFields(currentUserId, referral, now) {
 async function handleListCards(request, env) {
   const user = await requireUser(request, env);
   const index = await getJson(env, userPath(user.user_id, "indexes/cards.json")) || { cards: [] };
+  const url = new URL(request.url);
+  if (url.searchParams.get("summary") === "1") {
+    return json({ ok: true, cards: index.cards || [], index, summary: true });
+  }
   const cards = [];
-  for (const item of index.cards || []) {
+  const limit = Math.max(1, Math.min(20, Number(url.searchParams.get("limit") || 20)));
+  for (const item of (index.cards || []).slice(0, limit)) {
     const card = await getJson(env, userPath(user.user_id, `cards/${sanitizeId(item.card_id)}.json`));
     if (card) cards.push(card);
   }
-  return json({ ok: true, cards, index });
+  return json({ ok: true, cards, index, limited: true, limit });
 }
 
 async function handleUpsertManualCard(request, env, routeCardId = "") {

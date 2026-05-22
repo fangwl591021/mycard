@@ -283,7 +283,7 @@ async function loadMe() {
 }
 
 async function loadRemoteCards(token) {
-  const response = await fetch(`${apiBase}/api/cards`, {
+  const response = await fetch(`${apiBase}/api/cards?summary=1`, {
     headers: { authorization: `Bearer ${token}` }
   });
   const data = await response.json();
@@ -310,9 +310,9 @@ function remoteCardToLocalCard(card) {
     public_slug: card.public_slug || "",
     public_url: card.public_slug ? `${location.origin}/card/${card.public_slug}` : "",
     ecard_img_url: cfg.imgUrl || lineCard["名片圖檔"] || "",
-    name: lineCard["姓名"] || fieldsFromCard.name || "未命名",
+    name: lineCard["姓名"] || fieldsFromCard.name || card.name || "未命名",
     title: lineCard["職稱"] || fieldsFromCard.title || "",
-    company: lineCard["公司名稱"] || fieldsFromCard.company || "",
+    company: lineCard["公司名稱"] || fieldsFromCard.company || card.company || "",
     phone: lineCard["手機號碼"] || fieldsFromCard.phone || "",
     email: lineCard["電子郵件"] || fieldsFromCard.email || "",
     social: lineCard["社群帳號"] || fieldsFromCard.line_id || "",
