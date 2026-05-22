@@ -29,6 +29,7 @@ let state = loadState();
 let liffProfile = null;
 let liffIdToken = "";
 let selectedOcrFile = null;
+let cardSearchQuery = "";
 
 const form = document.querySelector("#cardForm");
 const toast = document.querySelector("#toast");
@@ -176,21 +177,80 @@ function renderMetrics() {
 function renderCardList() {
   const list = document.querySelector("#cardList");
   list.innerHTML = "";
-  state.cards.forEach((card) => {
+  const query = cardSearchQuery.trim().toLowerCase();
+  const cards = query
+    ? state.cards.filter((card) => buildCardSearchText(card).includes(query))
+    : state.cards;
+  const countText = document.querySelector("#cardCountText");
+  if (countText) countText.textContent = `${cards.length} / ${state.cards.length} 張名片`;
+  if (!cards.length) {
+    list.innerHTML = `<div class="empty-row">沒有符合條件的名片。</div>`;
+    return;
+  }
+  const header = document.createElement("div");
+  header.className = "card-row card-row-head";
+  header.innerHTML = `
+    <span>名片</span>
+    <span>聯絡</span>
+    <span>CRM</span>
+    <span>下一步</span>
+    <span>操作</span>
+  `;
+  list.appendChild(header);
+  cards.forEach((card) => {
     const item = document.createElement("article");
-    item.className = "mini-card";
+    item.className = "card-row";
+    const subtitle = [card.title, card.company].filter(Boolean).join(" · ");
     item.innerHTML = `
-      <strong>${card.name || "未命名"}</strong>
-      <p>${card.title || "職稱"} · ${card.company || "公司"}<br>${card.views || 0} 次瀏覽 · ${card.leads || 0} 筆互動</p>
-      <div class="mini-actions">
+      <span>
+        <strong>${escapeHtml(card.name || "未命名")}</strong>
+        <small>${escapeHtml(subtitle)}</small>
+      </span>
+      <span>
+        ${escapeHtml(card.phone || "-")}
+        <small>${escapeHtml(card.email || card.social || "")}</small>
+      </span>
+      <span>
+        ${escapeHtml(card.crm_status || "-")}
+        <small>${escapeHtml(card.crm_type || "")}</small>
+      </span>
+      <span>
+        ${escapeHtml(card.crm_next_action || "-")}
+        <small>${escapeHtml(card.crm_ai_suggestion || "")}</small>
+      </span>
+      <span class="row-actions">
         <button class="ghost-button" data-edit="${card.id}">編輯</button>
         <button class="ghost-button" data-delete="${card.id}">刪除</button>
-      </div>
+      </span>
     `;
     list.appendChild(item);
   });
 }
 
+function buildCardSearchText(card) {
+  return [
+    card.name,
+    card.title,
+    card.company,
+    card.phone,
+    card.email,
+    card.social,
+    card.crm_status,
+    card.crm_type,
+    card.crm_next_action,
+    card.crm_ai_suggestion
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function escapeHtml(value) {
+  return String(value || "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#039;"
+  })[char]);
+}
 function renderLeads() {
   const table = document.querySelector("#leadTable");
   table.innerHTML = `
@@ -319,6 +379,11 @@ function remoteCardToLocalCard(card) {
     bio: cfg.desc || lineCard["服務項目"] || (fieldsFromCard.raw_text ? `OCR 原文：${fieldsFromCard.raw_text}` : "由拍照 OCR 建立的私人名片。"),
     views: 0,
     leads: 0
+    ,
+    crm_status: card.crm_status || card.crm?.status || "",
+    crm_type: card.crm_type || card.crm?.type || "",
+    crm_next_action: card.crm_next_action || card.crm?.next_action || "",
+    crm_ai_suggestion: card.crm_ai_suggestion || card.crm?.ai_suggestion || ""
   };
 }
 
@@ -644,6 +709,11 @@ document.querySelectorAll(".segment").forEach((button) => {
 
 document.querySelectorAll(".nav-item").forEach((button) => {
   button.addEventListener("click", () => switchView(button.dataset.view));
+});
+
+document.querySelector("#cardSearchInput")?.addEventListener("input", (event) => {
+  cardSearchQuery = event.target.value || "";
+  renderCardList();
 });
 
 document.querySelectorAll(".role-card").forEach((button) => {
