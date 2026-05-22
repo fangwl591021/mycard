@@ -26,6 +26,10 @@ body {
   color: var(--text);
 }
 
+body.admin-page {
+  display: block;
+}
+
 button,
 input,
 textarea,
@@ -107,6 +111,99 @@ button {
 .app-shell {
   padding: 28px;
   overflow: hidden;
+}
+
+.admin-import-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+.admin-import-head,
+.admin-token-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.admin-import-head p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.admin-token-panel {
+  padding: 16px;
+}
+
+.admin-token-panel label {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.admin-token-panel input {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--text);
+}
+
+.admin-metrics {
+  margin-top: 0;
+}
+
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.import-table {
+  display: grid;
+  gap: 0;
+}
+
+.import-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr .7fr 2fr;
+  gap: 14px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  align-items: center;
+  font-size: 14px;
+}
+
+.import-row:first-child {
+  border-top: 0;
+}
+
+.import-head-row {
+  color: var(--muted);
+  font-weight: 700;
+  background: var(--surface-2);
+}
+
+.import-row small,
+.import-row code {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.empty-row {
+  padding: 22px;
+  color: var(--muted);
 }
 
 .topbar,

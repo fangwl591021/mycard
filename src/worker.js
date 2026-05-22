@@ -41,6 +41,10 @@ export default {
         return await handleImportStatus(request, env);
       }
 
+      if (url.pathname === "/api/admin/import/users" && request.method === "GET") {
+        return await handleImportUsers(request, env);
+      }
+
       if (url.pathname.startsWith("/r/") && request.method === "GET") {
         return handleReferralLanding(request, env);
       }
@@ -248,6 +252,46 @@ async function handleImportLineUsers(request, env) {
 }
 
 async function handleImportStatus(request, env) {
+  requireMigrationToken(request, env);
+  const status = await getImportStatus(env);
+  return json({ ok: true, ...status });
+}
+
+async function handleImportUsers(request, env) {
+  requireMigrationToken(request, env);
+  const url = new URL(request.url);
+  const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 50)));
+  const usersPrefix = appPath(env, "users/");
+  const userObjects = await listObjects(env, usersPrefix, 1000);
+  const profileObjects = userObjects.filter((item) => item.key.endsWith("/profile.json")).slice(0, limit);
+  const users = [];
+
+  for (const item of profileObjects) {
+    const profile = await getJson(env, item.key);
+    const legacy = profile?.legacy?.line_engine || {};
+    users.push({
+      user_id: profile?.user_id || "",
+      name: profile?.name || "",
+      phone: profile?.phone || "",
+      industry: profile?.industry || "",
+      plan: profile?.plan || "free",
+      ref_code: profile?.ref_code || "",
+      line_user_id: profile?.line_user_id || "",
+      legacy_role: legacy.legacy_role || "",
+      legacy_network_id: legacy.legacy_network_id || "",
+      legacy_row_id: legacy.legacy_row_id || "",
+      profile_key: item.key,
+      card_key: profile?.legacy?.line_engine?.legacy_row_id
+        ? `${usersPrefix}${sanitizeId(profile.user_id).replace(/^line_/, "line_")}/cards/legacy_profile_${sanitizeId(profile.legacy.line_engine.legacy_row_id)}.json`
+        : ""
+    });
+  }
+
+  const status = await getImportStatus(env);
+  return json({ ok: true, ...status, users });
+}
+
+function requireMigrationToken(request, env) {
   const token = request.headers.get("x-admin-migration-token") || "";
   if (!env.MIGRATION_ADMIN_TOKEN) {
     throw new HttpError(503, "migration_disabled", "MIGRATION_ADMIN_TOKEN is not configured");
@@ -255,15 +299,16 @@ async function handleImportStatus(request, env) {
   if (!token || token !== env.MIGRATION_ADMIN_TOKEN) {
     throw new HttpError(401, "migration_unauthorized", "Invalid migration token");
   }
+}
 
+async function getImportStatus(env) {
   const usersPrefix = appPath(env, "users/");
   const importsPrefix = appPath(env, "imports/line-engine/");
   const userObjects = await listObjects(env, usersPrefix, 1000);
   const importObjects = await listObjects(env, importsPrefix, 100);
   const profileObjects = userObjects.filter((item) => item.key.endsWith("/profile.json"));
   const cardObjects = userObjects.filter((item) => item.key.includes("/cards/") && item.key.endsWith(".json"));
-  return json({
-    ok: true,
+  return {
     bucket: env.WASABI_BUCKET,
     base_prefix: env.WASABI_BASE_PREFIX || "tonyuse",
     users_prefix: usersPrefix,
@@ -274,7 +319,7 @@ async function handleImportStatus(request, env) {
     sample_profiles: profileObjects.slice(0, 5).map((item) => item.key),
     sample_cards: cardObjects.slice(0, 5).map((item) => item.key),
     latest_import_logs: importObjects.slice(0, 5).map((item) => item.key)
-  });
+  };
 }
 
 function normalizeLegacyLineUser(row) {

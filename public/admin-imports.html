@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>匯入資料庫｜名片王</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-page">
+  <main class="admin-import-shell">
+    <section class="admin-import-head">
+      <div>
+        <p class="eyebrow">WASABI IMPORT DATABASE</p>
+        <h1>匯入資料庫</h1>
+        <p>直接讀取 Wasabi <strong>tonyuse/users/</strong>，檢查從範例程式搬入的使用者與名片 JSON。</p>
+      </div>
+      <a class="ghost-button link-button" href="/">回工作台</a>
+    </section>
+
+    <section class="panel admin-token-panel">
+      <label>管理 Token
+        <input id="adminTokenInput" type="password" autocomplete="off" placeholder="貼上 MIGRATION_ADMIN_TOKEN">
+      </label>
+      <button class="primary-button" id="loadImportBtn" type="button">讀取匯入資料</button>
+      <button class="ghost-button" id="clearTokenBtn" type="button">清除</button>
+    </section>
+
+    <section class="metric-grid admin-metrics">
+      <article class="metric"><span>Bucket</span><strong id="metricBucket">-</strong><small id="metricPrefix">-</small></article>
+      <article class="metric"><span>Profiles</span><strong id="metricProfiles">0</strong><small>profile.json</small></article>
+      <article class="metric"><span>Cards</span><strong id="metricImportCards">0</strong><small>legacy private cards</small></article>
+      <article class="metric"><span>Import Logs</span><strong id="metricLogs">0</strong><small>line-engine logs</small></article>
+    </section>
+
+    <section class="panel">
+      <div class="section-head">
+        <h2>搬入使用者</h2>
+        <span class="muted" id="importStatusText">尚未讀取</span>
+      </div>
+      <div class="import-table" id="importTable"></div>
+    </section>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="admin-imports.js"></script>
+</body>
+</html>
