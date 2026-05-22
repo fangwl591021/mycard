@@ -259,9 +259,19 @@ async function loadMe() {
   const points = data.points?.balance ?? 0;
   const cards = await loadRemoteCards(token);
   const rents = await loadRents(token);
-  const refCode = data.user?.ref_code ? `，推廣碼 ${data.user.ref_code}` : "";
+  const user = data.user || {};
+  const refCode = user.ref_code ? `，推廣碼 ${user.ref_code}` : "";
+  const legacy = user.legacy?.line_engine;
+  const legacyText = legacy
+    ? `已匹配舊資料：${legacy.legacy_role || "user"} / ${legacy.legacy_network_id || "personal"}`
+    : `尚未匹配舊資料，目前 LINE ID：${user.line_user_id || "未取得"}`;
+  const profileText = [user.industry, user.phone].filter(Boolean).join(" / ");
   setReferralBox(data.user?.referral_url, data.user?.ref_code);
-  setLiffStatus("我的資料已讀取", `${data.user?.name || "LINE 使用者"}，目前點數 ${points}${refCode}，同步 ${cards.length} 張名片、${rents.length} 個付費空間。`, true);
+  setLiffStatus(
+    "我的資料已讀取",
+    `${user.name || "LINE 使用者"}${profileText ? `｜${profileText}` : ""}，目前點數 ${points}${refCode}，同步 ${cards.length} 張名片、${rents.length} 個付費空間。${legacyText}`,
+    true
+  );
   showToast(`同步 ${cards.length} 張名片，目前點數 ${points}`);
 }
 
@@ -271,13 +281,12 @@ async function loadRemoteCards(token) {
   });
   const data = await response.json();
   if (!response.ok || !data.ok) throw new Error(data.message || "讀取名片清單失敗");
-  if (Array.isArray(data.cards) && data.cards.length) {
-    state.cards = data.cards.map(remoteCardToLocalCard);
-    state.activeId = state.cards[0].id;
-    saveState();
-    renderAll();
-  }
-  return data.cards || [];
+  const remoteCards = Array.isArray(data.cards) ? data.cards : [];
+  state.cards = remoteCards.map(remoteCardToLocalCard);
+  state.activeId = state.cards[0]?.id || "";
+  saveState();
+  renderAll();
+  return remoteCards;
 }
 
 function remoteCardToLocalCard(card) {

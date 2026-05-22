@@ -121,6 +121,7 @@ async function handleLineAuth(request, env) {
     referred_at: existing.referred_at
   } : buildReferralFields(user.user_id, referral, now);
   const profile = {
+    ...(existing || {}),
     user_id: user.user_id,
     login_provider: "line",
     line_user_id: user.line_user_id,
