@@ -435,6 +435,82 @@ select:focus {
   overflow: hidden;
 }
 
+.line-card-v1 {
+  min-height: auto;
+  padding: 0;
+  background: #fff;
+  color: #1e293b;
+  justify-content: flex-start;
+}
+
+.line-card-v1 .card-top {
+  display: block;
+  position: relative;
+  aspect-ratio: 20 / 13;
+  background: var(--line-card-img) center / cover no-repeat, #f1f5f9;
+}
+
+.line-card-v1 .avatar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: auto;
+  height: auto;
+  min-width: 66px;
+  padding: 7px 18px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .12);
+}
+
+.line-card-v1 .status {
+  display: none;
+}
+
+.line-card-v1 > div:nth-child(2) {
+  padding: 24px 26px 18px;
+  text-align: center;
+}
+
+.line-card-v1 h2 {
+  font-size: 24px;
+  margin-bottom: 8px;
+  color: #1e293b;
+}
+
+.line-card-v1 p {
+  color: #64748b;
+}
+
+.line-card-v1 .contact-list {
+  grid-template-columns: 1fr;
+  padding: 0 26px 22px;
+}
+
+.line-card-v1 .contact-list a {
+  min-height: 46px;
+  border-radius: 14px;
+  color: #fff;
+}
+
+.line-card-v1 .contact-list a:nth-child(1) {
+  background: #3b82f6;
+}
+
+.line-card-v1 .contact-list a:nth-child(2) {
+  background: #64748b;
+}
+
+.line-card-v1 .contact-list a:nth-child(3) {
+  background: #06C755;
+}
+
+.line-card-v1 .qr-block {
+  padding: 0 26px 24px;
+}
+
 .theme-mint {
   background: linear-gradient(160deg, #e9f4eb 0%, #ffffff 52%, #d5efe6 100%);
   color: #11231f;

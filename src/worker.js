@@ -200,6 +200,7 @@ async function handleUpsertManualCard(request, env, routeCardId = "") {
   const now = new Date().toISOString();
   const cardId = sanitizeId(routeCardId || body.card_id || `card_${Date.now()}_${randomString(8)}`);
   const existing = await getJson(env, userPath(user.user_id, `cards/${cardId}.json`));
+  const normalizedFields = normalizeManualFields(body.fields || body);
   const card = {
     ...(existing || {}),
     card_id: cardId,
@@ -207,7 +208,13 @@ async function handleUpsertManualCard(request, env, routeCardId = "") {
     visibility: existing?.visibility || body.visibility || "private",
     public_slug: existing?.public_slug || body.public_slug || "",
     source: existing?.source || "manual",
-    fields: normalizeManualFields(body.fields || body),
+    fields: normalizedFields,
+    line_card: mergeLineCardRecord(buildLineCardRecord(normalizedFields, {
+      cardId,
+      userId: user.user_id,
+      source: existing?.source || "manual",
+      existing
+    }), body.line_card),
     reward_status: existing?.reward_status || "not_eligible",
     reward_points: existing?.reward_points || 0,
     created_at: existing?.created_at || now,
@@ -377,6 +384,12 @@ async function handleCardScan(request, env) {
     reward_status: "granted",
     reward_points: CARD_REWARD_POINTS,
     fields: normalizeParsedCard(parsed),
+    line_card: buildLineCardRecord(normalizeParsedCard(parsed), {
+      cardId,
+      userId: user.user_id,
+      source: "ocr",
+      imageKey
+    }),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
@@ -592,25 +605,109 @@ function normalizeManualFields(fields) {
   };
 }
 
+function buildLineCardRecord(fields, options = {}) {
+  const cfg = buildDefaultEcardConfig(fields, options);
+  const now = new Date().toISOString();
+  const existing = options.existing?.line_card || {};
+  return {
+    ...existing,
+    rowId: options.cardId,
+    card_id: options.cardId,
+    userId: options.userId,
+    creatorId: options.userId,
+    "LINE ID": options.userId,
+    "User ID": options.userId,
+    "建檔者ID": options.userId,
+    "姓名": fields.name || "",
+    "英文名": fields.english_name || "",
+    "職稱": fields.title || "",
+    "部門": fields.department || "",
+    "公司名稱": fields.company || "",
+    "統一編號": fields.tax_id || "",
+    "手機號碼": fields.phone || "",
+    "公司電話": fields.company_phone || "",
+    "分機": fields.extension || "",
+    "傳真": fields.fax || "",
+    "電子郵件": fields.email || "",
+    "公司網址": fields.website || "",
+    "社群帳號": fields.line_id || "",
+    "公司地址": fields.address || "",
+    "服務項目": fields.raw_text || fields.service || fields.title || fields.company || "",
+    "標籤": fields.tags || "",
+    "建檔人/備註": options.source === "ocr" ? "由 mycard GPT OCR 建立" : "由 mycard 手動建立",
+    "名片圖檔": cfg.imgUrl || "",
+    "自訂名片設定": JSON.stringify(cfg),
+    "歸屬網": "personal",
+    "建立時間": existing["建立時間"] || now,
+    "更新時間": now
+  };
+}
+
+function mergeLineCardRecord(base, override = {}) {
+  if (!override || typeof override !== "object") return base;
+  return {
+    ...base,
+    ...Object.fromEntries(Object.entries(override).filter(([, value]) => value !== undefined && value !== null))
+  };
+}
+
+function buildDefaultEcardConfig(fields, options = {}) {
+  const cleanPhone = normalizePhone(fields.phone);
+  const buttons = [
+    { l: "加LINE好友", u: fields.line_id ? `https://line.me/R/ti/p/${fields.line_id}` : "https://lin.ee/y7h8BUF", c: "#06C755" },
+    { l: "行動電話", u: cleanPhone ? `tel:${cleanPhone}` : "tel:XXXXXXXXXX", c: "#3b82f6" },
+    { l: "店家地址", u: fields.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fields.address)}` : "https://www.google.com/maps", c: "#1e293b" }
+  ];
+  return {
+    layoutStyle: "landscape",
+    imgUrl: "",
+    imgUrlPortrait: "",
+    imgUrlSquare: "",
+    imgRatioLandscape: "20:13",
+    imgRatioPortrait: "2:3",
+    imgRatioSquare: "1:1",
+    desc: fields.raw_text || fields.service || fields.title || fields.company || "",
+    descAlign: "center",
+    descColor: "#666666",
+    buttons,
+    isPrivate: true,
+    templateDraft: options.source !== "ocr",
+    templateVersion: "mycard-line-v1"
+  };
+}
+
 function buildPublicCard(card) {
   return {
     card_id: card.card_id,
     public_slug: card.public_slug,
     fields: card.fields,
+    line_card: card.line_card || buildLineCardRecord(card.fields || {}, {
+      cardId: card.card_id,
+      userId: card.owner_user_id,
+      source: card.source
+    }),
     published_at: new Date().toISOString(),
     updated_at: card.updated_at
   };
 }
 
 function renderPublicCardHtml(card) {
-  const fields = card.fields || {};
-  const name = escapeHtml(fields.name || "未命名");
-  const title = escapeHtml(fields.title || "");
-  const company = escapeHtml(fields.company || "");
-  const phone = escapeHtml(fields.phone || "");
-  const email = escapeHtml(fields.email || "");
-  const lineId = escapeHtml(fields.line_id || "");
-  const bio = escapeHtml(fields.raw_text || "");
+  const lineCard = card.line_card || buildLineCardRecord(card.fields || {}, { cardId: card.card_id });
+  const cfg = parseCardConfig(lineCard);
+  const name = escapeHtml(lineCard["姓名"] || "未命名");
+  const title = escapeHtml(lineCard["職稱"] || "");
+  const company = escapeHtml(lineCard["公司名稱"] || "");
+  const desc = escapeHtml(cfg.desc || lineCard["服務項目"] || lineCard["職稱"] || lineCard["公司名稱"] || "");
+  const imgUrl = escapeHtml(cfg.imgUrl || lineCard["名片圖檔"] || "https://images.unsplash.com/photo-1616628188550-808682f3926d?w=800&q=80");
+  const color = escapeHtml(cfg.descColor || "#666666");
+  const align = escapeHtml(cfg.descAlign || "center");
+  const buttons = Array.isArray(cfg.buttons) ? cfg.buttons : [];
+  const buttonHtml = buttons.map((button) => {
+    const label = escapeHtml(button.l || "按鈕");
+    const href = escapeHtml(button.u || "#");
+    const bg = escapeHtml(button.c || "#06C755");
+    return `<a href="${href}" class="cta" style="background:${bg}">${label}</a>`;
+  }).join("");
   return `<!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -618,31 +715,38 @@ function renderPublicCardHtml(card) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${name}｜名片王</title>
   <style>
-    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f5f7f4;font-family:"Segoe UI","Microsoft JhengHei",Arial,sans-serif;color:#14211e;padding:20px}
-    .card{width:min(420px,100%);min-height:560px;border-radius:28px;padding:30px;background:linear-gradient(160deg,#e9f4eb 0%,#fff 52%,#d5efe6 100%);box-shadow:0 18px 45px rgba(33,48,42,.14);display:flex;flex-direction:column;justify-content:space-between}
-    .avatar{width:68px;height:68px;border-radius:18px;background:#1d7a5f;color:#fff;display:grid;place-items:center;font-size:32px;font-weight:800}
-    h1{font-size:34px;margin:28px 0 8px}.role{color:#60706a;margin:0 0 20px;line-height:1.6}.bio{line-height:1.7;white-space:pre-wrap}.links{display:grid;gap:10px}.links a{min-height:44px;border-radius:8px;background:rgba(29,122,95,.1);display:grid;place-items:center;color:#145f4a;text-decoration:none;font-weight:700}.brand{color:#60706a;font-size:13px;text-align:center;margin-top:20px}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#e8f0f5;font-family:"Segoe UI","Microsoft JhengHei",Arial,sans-serif;color:#1e293b;padding:20px}
+    .phone{width:min(420px,100%);background:#fff;border-radius:24px;box-shadow:0 20px 54px rgba(15,23,42,.18);overflow:hidden}
+    .hero{position:relative;aspect-ratio:20/13;background:#f1f5f9 center/cover no-repeat}
+    .badge{position:absolute;right:14px;top:14px;background:#ef4444;color:#fff;font-size:12px;font-weight:800;padding:7px 18px;border-radius:999px;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+    .body{padding:26px;text-align:center}.name{font-size:24px;font-weight:900;margin:0 0 8px}.role{font-size:14px;color:#64748b;margin:0 0 14px}.desc{font-size:14px;line-height:1.75;white-space:pre-wrap;margin:0}.actions{padding:0 26px 26px}.cta{display:block;text-align:center;text-decoration:none;color:#fff;border-radius:14px;padding:13px 16px;font-size:14px;font-weight:900;margin-bottom:10px;box-shadow:0 3px 10px rgba(15,23,42,.1)}.brand{color:#64748b;font-size:12px;text-align:center;margin-top:16px}
   </style>
 </head>
 <body>
   <main>
-    <article class="card">
-      <div>
-        <div class="avatar">${name.slice(0, 1)}</div>
-        <h1>${name}</h1>
+    <article class="phone">
+      <div class="hero" style="background-image:url('${imgUrl}')"><div class="badge">分享</div></div>
+      <div class="body">
+        <h1 class="name">${name}</h1>
         <p class="role">${title}${title && company ? " · " : ""}${company}</p>
-        <p class="bio">${bio}</p>
+        <p class="desc" style="color:${color};text-align:${align}">${desc}</p>
       </div>
-      <div class="links">
-        ${phone ? `<a href="tel:${phone}">撥打電話</a>` : ""}
-        ${email ? `<a href="mailto:${email}">寄送 Email</a>` : ""}
-        ${lineId ? `<a href="https://line.me/R/ti/p/${encodeURIComponent(lineId)}">加入 LINE</a>` : ""}
-      </div>
+      ${buttonHtml ? `<div class="actions">${buttonHtml}</div>` : ""}
     </article>
     <p class="brand">名片王 MyCard</p>
   </main>
 </body>
 </html>`;
+}
+
+function parseCardConfig(card) {
+  try {
+    const raw = card?.["自訂名片設定"] || "{}";
+    const cfg = typeof raw === "object" ? raw : JSON.parse(String(raw));
+    return cfg && typeof cfg === "object" ? cfg : {};
+  } catch {
+    return {};
+  }
 }
 
 function createCardFingerprint(parsed) {

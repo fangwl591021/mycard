@@ -125,17 +125,41 @@ function updatePreview() {
   const card = activeCard();
   if (!card) return;
   const slug = slugify(card.name);
-  document.querySelector("#cardPreview").className = `business-card theme-${card.theme}`;
-  document.querySelector("#avatarPreview").textContent = (card.name || "名").slice(0, 1);
+  const cfg = getLocalEcardConfig(card);
+  document.querySelector("#cardPreview").className = `business-card line-card-v1 theme-${card.theme}`;
+  document.querySelector("#cardPreview").style.setProperty("--line-card-img", `url("${cfg.imgUrl}")`);
+  document.querySelector("#avatarPreview").textContent = "分享";
   document.querySelector("#previewName").textContent = card.name || "未命名";
   document.querySelector("#previewRole").textContent = `${card.title || "職稱"} · ${card.company || "公司"}`;
-  document.querySelector("#previewBio").textContent = card.bio || "尚未填寫介紹。";
+  document.querySelector("#previewBio").textContent = cfg.desc || card.bio || "尚未填寫介紹。";
+  document.querySelector("#previewBio").style.color = cfg.descColor;
+  document.querySelector("#previewBio").style.textAlign = cfg.descAlign;
   document.querySelector("#previewPhone").href = `tel:${card.phone || ""}`;
+  document.querySelector("#previewPhone").textContent = "行動電話";
   document.querySelector("#previewEmail").href = `mailto:${card.email || ""}`;
+  document.querySelector("#previewEmail").textContent = "電子郵件";
   document.querySelector("#previewSocial").href = "#";
+  document.querySelector("#previewSocial").textContent = "加LINE好友";
   const publicUrl = card.public_url || `${location.origin}/card/${card.public_slug || slug}`;
   document.querySelector("#shareSlug").textContent = `card/${card.public_slug || slug}`;
   document.querySelector("#shareText").textContent = publicUrl;
+}
+
+function getLocalEcardConfig(card) {
+  const desc = card.bio || card.title || card.company || "";
+  return {
+    layoutStyle: "landscape",
+    imgUrl: card.ecard_img_url || "https://images.unsplash.com/photo-1616628188550-808682f3926d?w=800&q=80",
+    imgRatioLandscape: "20:13",
+    desc,
+    descAlign: "center",
+    descColor: "#666666",
+    buttons: [
+      { l: "加LINE好友", u: card.social ? `https://line.me/R/ti/p/${card.social}` : "https://lin.ee/y7h8BUF", c: "#06C755" },
+      { l: "行動電話", u: card.phone ? `tel:${card.phone}` : "tel:XXXXXXXXXX", c: "#3b82f6" },
+      { l: "店家地址", u: "https://www.google.com/maps", c: "#1e293b" }
+    ]
+  };
 }
 
 function renderMetrics() {
@@ -258,25 +282,38 @@ async function loadRemoteCards(token) {
 
 function remoteCardToLocalCard(card) {
   const fieldsFromCard = card.fields || {};
+  const lineCard = card.line_card || {};
+  const cfg = parseEcardConfig(lineCard["自訂名片設定"]);
   return {
     id: card.card_id,
     theme: "mint",
     visibility: card.visibility || "private",
     public_slug: card.public_slug || "",
     public_url: card.public_slug ? `${location.origin}/card/${card.public_slug}` : "",
-    name: fieldsFromCard.name || "未命名",
-    title: fieldsFromCard.title || "",
-    company: fieldsFromCard.company || "",
-    phone: fieldsFromCard.phone || "",
-    email: fieldsFromCard.email || "",
-    social: fieldsFromCard.line_id || "",
-    bio: fieldsFromCard.raw_text ? `OCR 原文：${fieldsFromCard.raw_text}` : "由拍照 OCR 建立的私人名片。",
+    ecard_img_url: cfg.imgUrl || lineCard["名片圖檔"] || "",
+    name: lineCard["姓名"] || fieldsFromCard.name || "未命名",
+    title: lineCard["職稱"] || fieldsFromCard.title || "",
+    company: lineCard["公司名稱"] || fieldsFromCard.company || "",
+    phone: lineCard["手機號碼"] || fieldsFromCard.phone || "",
+    email: lineCard["電子郵件"] || fieldsFromCard.email || "",
+    social: lineCard["社群帳號"] || fieldsFromCard.line_id || "",
+    bio: cfg.desc || lineCard["服務項目"] || (fieldsFromCard.raw_text ? `OCR 原文：${fieldsFromCard.raw_text}` : "由拍照 OCR 建立的私人名片。"),
     views: 0,
     leads: 0
   };
 }
 
+function parseEcardConfig(raw) {
+  try {
+    const cfg = typeof raw === "object" ? raw : JSON.parse(raw || "{}");
+    return cfg && typeof cfg === "object" ? cfg : {};
+  } catch {
+    return {};
+  }
+}
+
 function localCardToPayload(card) {
+  const cfg = getLocalEcardConfig(card);
   return {
     card_id: card.id?.startsWith("card_") ? card.id : undefined,
     visibility: card.visibility || "private",
@@ -288,7 +325,21 @@ function localCardToPayload(card) {
       phone: card.phone || "",
       email: card.email || "",
       line_id: card.social || "",
+      website: "",
+      address: "",
+      service: card.bio || "",
       raw_text: card.bio || ""
+    },
+    line_card: {
+      "姓名": card.name || "",
+      "職稱": card.title || "",
+      "公司名稱": card.company || "",
+      "手機號碼": card.phone || "",
+      "電子郵件": card.email || "",
+      "社群帳號": card.social || "",
+      "服務項目": card.bio || "",
+      "名片圖檔": cfg.imgUrl || "",
+      "自訂名片設定": JSON.stringify(cfg)
     }
   };
 }
