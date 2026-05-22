@@ -104,20 +104,55 @@
         <section class="panel">
           <div class="panel-head">
             <h2>名片編輯器</h2>
-            <div class="segmented" role="tablist" aria-label="版型">
-              <button class="segment active" data-theme="mint">沉穩綠</button>
-              <button class="segment" data-theme="ink">商務黑</button>
-              <button class="segment" data-theme="rose">亮點紅</button>
-            </div>
+            <span class="storage-badge">舊系統名片規格</span>
           </div>
           <form class="editor" id="cardForm">
             <label>姓名<input id="nameInput" name="name" autocomplete="name"></label>
+            <label>英文名<input id="englishNameInput" name="english_name"></label>
             <label>職稱<input id="titleInput" name="title"></label>
-            <label>公司<input id="companyInput" name="company" autocomplete="organization"></label>
-            <label>電話<input id="phoneInput" name="phone" autocomplete="tel"></label>
-            <label>Email<input id="emailInput" name="email" autocomplete="email"></label>
-            <label>LINE / 社群<input id="socialInput" name="social"></label>
-            <label class="wide">一句話介紹<textarea id="bioInput" name="bio" rows="3"></textarea></label>
+            <label>部門<input id="departmentInput" name="department"></label>
+            <label>公司名稱<input id="companyInput" name="company" autocomplete="organization"></label>
+            <label>統一編號<input id="taxIdInput" name="tax_id"></label>
+            <label>手機號碼<input id="phoneInput" name="phone" autocomplete="tel"></label>
+            <label>公司電話<input id="companyPhoneInput" name="company_phone"></label>
+            <label>分機<input id="extensionInput" name="extension"></label>
+            <label>傳真<input id="faxInput" name="fax"></label>
+            <label>電子郵件<input id="emailInput" name="email" autocomplete="email"></label>
+            <label>公司網址<input id="websiteInput" name="website"></label>
+            <label>社群帳號<input id="socialInput" name="social"></label>
+            <label>標籤<input id="tagsInput" name="tags" placeholder="可用逗號分隔"></label>
+            <label class="wide">公司地址<input id="addressInput" name="address"></label>
+            <label class="wide">服務項目<textarea id="serviceInput" name="service" rows="4"></textarea></label>
+            <label class="wide">建檔人/備註<textarea id="notesInput" name="notes" rows="2"></textarea></label>
+            <div class="ecard-editor wide">
+              <div class="panel-head compact">
+                <h2>電子名片設定</h2>
+                <span class="muted">custom_config / 自訂名片設定</span>
+              </div>
+              <div class="editor compact-editor">
+                <label>版型
+                  <select id="layoutStyleInput" name="layoutStyle">
+                    <option value="landscape">橫式 20:13</option>
+                    <option value="portrait">直式 2:3</option>
+                    <option value="square">方形 1:1</option>
+                  </select>
+                </label>
+                <label>名片圖檔 URL<input id="ecardImageInput" name="imgUrl"></label>
+                <label>描述對齊
+                  <select id="descAlignInput" name="descAlign">
+                    <option value="start">靠左</option>
+                    <option value="center">置中</option>
+                    <option value="end">靠右</option>
+                  </select>
+                </label>
+                <label>描述色彩<input id="descColorInput" name="descColor" type="color" value="#666666"></label>
+              </div>
+              <div class="ecard-buttons-head">
+                <strong>按鈕</strong>
+                <button class="ghost-button" id="addEcardButtonBtn" type="button">新增按鈕</button>
+              </div>
+              <div class="ecard-button-list" id="ecardButtonList"></div>
+            </div>
             <div class="wide action-row">
               <button class="primary-button" type="submit">儲存名片</button>
               <button class="ghost-button" type="button" id="duplicateBtn">複製目前名片</button>
@@ -137,11 +172,7 @@
                 <p id="previewRole">業務總監 · 名片王科技</p>
                 <p id="previewBio">用一張可追蹤、可更新、可收單的數位名片，替業務團隊建立一致的第一印象。</p>
               </div>
-              <div class="contact-list">
-                <a id="previewPhone" href="#">電話</a>
-                <a id="previewEmail" href="#">Email</a>
-                <a id="previewSocial" href="#">LINE</a>
-              </div>
+              <div class="contact-list" id="previewButtons"></div>
               <div class="qr-block">
                 <div class="qr-grid" aria-label="QR code preview"></div>
                 <span id="shareSlug">card/wang</span>

@@ -37,12 +37,28 @@ const form = document.querySelector("#cardForm");
 const toast = document.querySelector("#toast");
 const fields = {
   name: document.querySelector("#nameInput"),
+  english_name: document.querySelector("#englishNameInput"),
   title: document.querySelector("#titleInput"),
+  department: document.querySelector("#departmentInput"),
   company: document.querySelector("#companyInput"),
+  tax_id: document.querySelector("#taxIdInput"),
   phone: document.querySelector("#phoneInput"),
+  company_phone: document.querySelector("#companyPhoneInput"),
+  extension: document.querySelector("#extensionInput"),
+  fax: document.querySelector("#faxInput"),
   email: document.querySelector("#emailInput"),
+  website: document.querySelector("#websiteInput"),
   social: document.querySelector("#socialInput"),
-  bio: document.querySelector("#bioInput")
+  address: document.querySelector("#addressInput"),
+  service: document.querySelector("#serviceInput"),
+  tags: document.querySelector("#tagsInput"),
+  notes: document.querySelector("#notesInput")
+};
+const ecardFields = {
+  layoutStyle: document.querySelector("#layoutStyleInput"),
+  imgUrl: document.querySelector("#ecardImageInput"),
+  descAlign: document.querySelector("#descAlignInput"),
+  descColor: document.querySelector("#descColorInput")
 };
 
 function loadState() {
@@ -119,9 +135,86 @@ function hydrateForm() {
   Object.entries(fields).forEach(([key, input]) => {
     input.value = card[key] || "";
   });
-  document.querySelectorAll(".segment").forEach((button) => {
-    button.classList.toggle("active", button.dataset.theme === card.theme);
-  });
+  const cfg = getLocalEcardConfig(card);
+  ecardFields.layoutStyle.value = cfg.layoutStyle || "landscape";
+  ecardFields.imgUrl.value = cfg.imgUrl || "";
+  ecardFields.descAlign.value = cfg.descAlign || "center";
+  ecardFields.descColor.value = cfg.descColor || "#666666";
+  renderEcardButtons(cfg.buttons || []);
+}
+
+function renderEcardButtons(buttons) {
+  const list = document.querySelector("#ecardButtonList");
+  if (!list) return;
+  if (!buttons.length) {
+    list.innerHTML = `<div class="empty-row compact-empty">尚未設定任何按鈕</div>`;
+    return;
+  }
+  list.innerHTML = buttons.map((button, index) => `
+    <div class="ecard-button-row" data-button-index="${index}">
+      <input type="color" value="${escapeHtml(button.c || "#06C755")}" data-ecard-button="${index}" data-ecard-field="c" title="按鈕色彩">
+      <input type="text" value="${escapeHtml(button.l || "")}" data-ecard-button="${index}" data-ecard-field="l" placeholder="按鈕顯示文字">
+      <input type="text" value="${escapeHtml(button.u || "")}" data-ecard-button="${index}" data-ecard-field="u" placeholder="https://...">
+      <button class="ghost-button" type="button" data-remove-ecard-button="${index}">刪除</button>
+    </div>
+  `).join("");
+}
+
+function currentEcardButtons(card = activeCard()) {
+  const cfg = getLocalEcardConfig(card || {});
+  return Array.isArray(cfg.buttons) ? cfg.buttons.slice() : [];
+}
+
+function updateCardEcardConfig(patch = {}) {
+  const card = activeCard();
+  if (!card) return;
+  const cfg = getLocalEcardConfig(card);
+  const next = { ...cfg, ...patch };
+  card.ecard_config = next;
+  card.ecard_img_url = next.imgUrl || "";
+  card.bio = next.desc || card.service || card.bio || "";
+  updatePreview();
+}
+
+function syncEcardConfigFromInputs() {
+  const card = activeCard();
+  if (!card) return;
+  const cfg = getLocalEcardConfig(card);
+  card.ecard_config = {
+    ...cfg,
+    layoutStyle: ecardFields.layoutStyle.value || "landscape",
+    imgUrl: ecardFields.imgUrl.value.trim(),
+    desc: card.service || card.bio || "",
+    descAlign: ecardFields.descAlign.value || "center",
+    descColor: ecardFields.descColor.value || "#666666",
+    buttons: currentEcardButtons(card)
+  };
+  card.ecard_img_url = card.ecard_config.imgUrl || "";
+}
+
+function defaultEcardButtons(card) {
+  const phone = String(card.phone || "").replace(/[^0-9+]/g, "");
+  return [
+    { l: "加LINE好友", u: card.social ? `https://line.me/R/ti/p/${card.social}` : "https://lin.ee/y7h8BUF", c: "#06C755" },
+    { l: "行動電話", u: phone ? `tel:${phone}` : "tel:XXXXXXXXXX", c: "#3b82f6" },
+    { l: "店家地址", u: card.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(card.address)}` : "https://www.google.com/maps", c: "#1e293b" }
+  ];
+}
+
+function cardPreviewRatio(cfg) {
+  if (cfg.layoutStyle === "portrait") return (cfg.imgRatioPortrait || "2:3").replace(":", " / ");
+  if (cfg.layoutStyle === "square") return "1 / 1";
+  return (cfg.imgRatioLandscape || "20:13").replace(":", " / ");
+}
+
+function renderPreviewButtons(buttons) {
+  return buttons.map((button) => `
+    <a href="${escapeHtml(button.u || "#")}" style="background:${escapeHtml(button.c || "#06C755")}">${escapeHtml(button.l || "按鈕")}</a>
+  `).join("");
+}
+
+function getPreviewImageUrl(cfg) {
+  return cfg.imgUrl || "https://images.unsplash.com/photo-1616628188550-808682f3926d?w=800&q=80";
 }
 
 function updatePreview() {
@@ -129,39 +222,39 @@ function updatePreview() {
   if (!card) return;
   const slug = slugify(card.name);
   const cfg = getLocalEcardConfig(card);
+  const buttons = Array.isArray(cfg.buttons) ? cfg.buttons : [];
+  const preview = document.querySelector("#cardPreview");
   document.querySelector("#cardPreview").className = `business-card line-card-v1 theme-${card.theme}`;
-  document.querySelector("#cardPreview").style.setProperty("--line-card-img", `url("${cfg.imgUrl}")`);
+  document.querySelector("#cardPreview").style.setProperty("--line-card-img", `url("${getPreviewImageUrl(cfg)}")`);
+  document.querySelector("#cardPreview").style.setProperty("--line-card-ratio", cardPreviewRatio(cfg));
   document.querySelector("#avatarPreview").textContent = "分享";
   document.querySelector("#previewName").textContent = card.name || "未命名";
   document.querySelector("#previewRole").textContent = `${card.title || "職稱"} · ${card.company || "公司"}`;
-  document.querySelector("#previewBio").textContent = cfg.desc || card.bio || "尚未填寫介紹。";
+  document.querySelector("#previewBio").textContent = cfg.desc || card.service || card.bio || "尚未填寫服務項目。";
   document.querySelector("#previewBio").style.color = cfg.descColor;
   document.querySelector("#previewBio").style.textAlign = cfg.descAlign;
-  document.querySelector("#previewPhone").href = `tel:${card.phone || ""}`;
-  document.querySelector("#previewPhone").textContent = "行動電話";
-  document.querySelector("#previewEmail").href = `mailto:${card.email || ""}`;
-  document.querySelector("#previewEmail").textContent = "電子郵件";
-  document.querySelector("#previewSocial").href = "#";
-  document.querySelector("#previewSocial").textContent = "加LINE好友";
+  document.querySelector("#previewButtons").innerHTML = renderPreviewButtons(buttons);
   const publicUrl = card.public_url || `${location.origin}/card/${card.public_slug || slug}`;
   document.querySelector("#shareSlug").textContent = `card/${card.public_slug || slug}`;
   document.querySelector("#shareText").textContent = publicUrl;
 }
 
 function getLocalEcardConfig(card) {
-  const desc = card.bio || card.title || card.company || "";
+  const saved = card.ecard_config && typeof card.ecard_config === "object" ? card.ecard_config : {};
+  const desc = saved.desc || card.service || card.bio || card.title || card.company || "";
   return {
     layoutStyle: "landscape",
-    imgUrl: card.ecard_img_url || "https://images.unsplash.com/photo-1616628188550-808682f3926d?w=800&q=80",
+    imgUrl: card.ecard_img_url || "",
+    imgUrlPortrait: "",
+    imgUrlSquare: "",
     imgRatioLandscape: "20:13",
+    imgRatioPortrait: "2:3",
+    imgRatioSquare: "1:1",
     desc,
     descAlign: "center",
     descColor: "#666666",
-    buttons: [
-      { l: "加LINE好友", u: card.social ? `https://line.me/R/ti/p/${card.social}` : "https://lin.ee/y7h8BUF", c: "#06C755" },
-      { l: "行動電話", u: card.phone ? `tel:${card.phone}` : "tel:XXXXXXXXXX", c: "#3b82f6" },
-      { l: "店家地址", u: "https://www.google.com/maps", c: "#1e293b" }
-    ]
+    buttons: defaultEcardButtons(card),
+    ...saved
   };
 }
 
@@ -400,6 +493,7 @@ function remoteCardToLocalCard(card) {
     visibility: card.visibility || "private",
     public_slug: card.public_slug || "",
     public_url: card.public_slug ? `${location.origin}/card/${card.public_slug}` : "",
+    ecard_config: cfg,
     ecard_img_url: cfg.imgUrl || card.source_image_url || lineCard["名片圖檔"] || lineCard["圖片網址"] || "",
     name: lineCard["姓名"] || fieldsFromCard.name || card.name || "未命名",
     english_name: lineCard["英文名"] || fieldsFromCard.english_name || card.english_name || "",
@@ -417,6 +511,7 @@ function remoteCardToLocalCard(card) {
     address: lineCard["公司地址"] || fieldsFromCard.address || card.address || "",
     service: lineCard["服務項目"] || fieldsFromCard.service || card.service || "",
     tags: lineCard["標籤"] || fieldsFromCard.tags || card.tags || "",
+    notes: lineCard["建檔人/備註"] || fieldsFromCard.notes || card.notes || "",
     bio: cfg.desc || lineCard["服務項目"] || card.service || (fieldsFromCard.raw_text ? `OCR 原文：${fieldsFromCard.raw_text}` : "由拍照 OCR 建立的私人名片。"),
     views: 0,
     leads: 0,
@@ -438,6 +533,7 @@ function parseEcardConfig(raw) {
 }
 
 function localCardToPayload(card) {
+  syncEcardConfigFromInputs();
   const cfg = getLocalEcardConfig(card);
   const persisted = isPersistedCardId(card.id);
   return {
@@ -461,6 +557,7 @@ function localCardToPayload(card) {
       address: card.address || "",
       service: card.service || card.bio || "",
       tags: card.tags || "",
+      notes: card.notes || "",
       raw_text: card.bio || ""
     },
     ecard_config: cfg,
@@ -481,6 +578,7 @@ function localCardToPayload(card) {
       "公司地址": card.address || "",
       "服務項目": card.service || card.bio || "",
       "標籤": card.tags || "",
+      "建檔人/備註": card.notes || "",
       "名片圖檔": cfg.imgUrl || "",
       "自訂名片設定": JSON.stringify(cfg)
     }
@@ -658,12 +756,22 @@ function applyOcrCardToForm(card) {
   const fieldsFromCard = card.fields || {};
   const mapping = {
     name: fieldsFromCard.name,
+    english_name: fieldsFromCard.english_name,
     title: fieldsFromCard.title,
+    department: fieldsFromCard.department,
     company: fieldsFromCard.company,
+    tax_id: fieldsFromCard.tax_id,
     phone: fieldsFromCard.phone,
+    company_phone: fieldsFromCard.company_phone,
+    extension: fieldsFromCard.extension,
+    fax: fieldsFromCard.fax,
     email: fieldsFromCard.email,
+    website: fieldsFromCard.website,
     social: fieldsFromCard.line_id,
-    bio: fieldsFromCard.raw_text ? `OCR 原文：${fieldsFromCard.raw_text}` : "由拍照 OCR 建立的名片資料。"
+    address: fieldsFromCard.address,
+    service: fieldsFromCard.service || fieldsFromCard.raw_text,
+    tags: fieldsFromCard.tags,
+    notes: "由 mycard GPT OCR 建立"
   };
   Object.entries(mapping).forEach(([key, value]) => {
     if (fields[key] && value !== undefined) {
@@ -726,6 +834,17 @@ function createCard(copyCurrent = false) {
     ...base,
     id: `card-${Date.now()}`,
     name: copyCurrent ? `${base.name} 副本` : "新名片",
+    english_name: copyCurrent ? base.english_name || "" : "",
+    department: copyCurrent ? base.department || "" : "",
+    tax_id: copyCurrent ? base.tax_id || "" : "",
+    company_phone: copyCurrent ? base.company_phone || "" : "",
+    extension: copyCurrent ? base.extension || "" : "",
+    fax: copyCurrent ? base.fax || "" : "",
+    website: copyCurrent ? base.website || "" : "",
+    address: copyCurrent ? base.address || "" : "",
+    service: copyCurrent ? base.service || base.bio || "" : "",
+    tags: copyCurrent ? base.tags || "" : "",
+    notes: copyCurrent ? base.notes || "" : "",
     views: 0,
     leads: 0
   };
@@ -743,6 +862,7 @@ form.addEventListener("submit", async (event) => {
   Object.entries(fields).forEach(([key, input]) => {
     card[key] = input.value.trim();
   });
+  syncEcardConfigFromInputs();
   saveState();
   renderAll();
   try {
@@ -758,6 +878,17 @@ Object.values(fields).forEach((input) => {
     const card = activeCard();
     const key = Object.entries(fields).find(([, value]) => value === input)[0];
     card[key] = input.value;
+    if (key === "service") {
+      updateCardEcardConfig({ desc: input.value });
+    }
+    updatePreview();
+  });
+});
+
+Object.values(ecardFields).forEach((input) => {
+  input.addEventListener("input", () => {
+    syncEcardConfigFromInputs();
+    saveState();
     updatePreview();
   });
 });
@@ -840,6 +971,35 @@ document.querySelector("#cardList").addEventListener("click", async (event) => {
     renderAll();
     showToast("名片已刪除");
   }
+});
+
+document.querySelector("#ecardButtonList").addEventListener("input", (event) => {
+  const index = Number(event.target.dataset.ecardButton);
+  const field = event.target.dataset.ecardField;
+  if (!Number.isInteger(index) || !field) return;
+  const buttons = currentEcardButtons();
+  if (!buttons[index]) return;
+  buttons[index] = { ...buttons[index], [field]: event.target.value };
+  updateCardEcardConfig({ buttons });
+  saveState();
+});
+
+document.querySelector("#ecardButtonList").addEventListener("click", (event) => {
+  const index = Number(event.target.dataset.removeEcardButton);
+  if (!Number.isInteger(index)) return;
+  const buttons = currentEcardButtons();
+  buttons.splice(index, 1);
+  updateCardEcardConfig({ buttons });
+  renderEcardButtons(buttons);
+  saveState();
+});
+
+document.querySelector("#addEcardButtonBtn").addEventListener("click", () => {
+  const buttons = currentEcardButtons();
+  buttons.push({ l: "新按鈕", u: "", c: "#06C755" });
+  updateCardEcardConfig({ buttons });
+  renderEcardButtons(buttons);
+  saveState();
 });
 
 document.querySelector("#addLeadBtn").addEventListener("click", () => {

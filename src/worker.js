@@ -537,7 +537,8 @@ function buildLegacyContactCard(userId, legacy, now) {
     address: legacy.address || "",
     service: legacy.services || "",
     raw_text: legacy.services || legacy.notes || legacy.personality || "",
-    tags: legacy.tags || ""
+    tags: legacy.tags || "",
+    notes: legacy.notes || ""
   };
   const ecardConfig = normalizeLegacyCardConfig(legacy.custom_config, legacy, fields);
   return {
@@ -975,6 +976,7 @@ async function upsertCardIndex(env, userId, card) {
     address: card.fields.address || "",
     service: card.fields.service || "",
     tags: card.fields.tags || "",
+    notes: card.fields.notes || "",
     visibility: card.visibility,
     public_slug: card.public_slug || "",
     source: card.source || "",
@@ -1063,7 +1065,7 @@ async function recognizeBusinessCard(env, bytes, contentType) {
         content: [
           {
             type: "input_text",
-            text: "請辨識這張紙本名片，僅回傳 JSON。欄位沿用舊系統名片規格，包含 name,english_name,title,department,company,tax_id,phone,company_phone,extension,fax,email,line_id,website,address,service,tags,raw_text。無法辨識的欄位用空字串。"
+            text: "請辨識這張紙本名片，僅回傳 JSON。欄位沿用舊系統名片規格，包含 name,english_name,title,department,company,tax_id,phone,company_phone,extension,fax,email,line_id,website,address,service,tags,notes,raw_text。無法辨識的欄位用空字串。"
           },
           {
             type: "input_image",
@@ -1095,9 +1097,10 @@ async function recognizeBusinessCard(env, bytes, contentType) {
               address: { type: "string" },
               service: { type: "string" },
               tags: { type: "string" },
+              notes: { type: "string" },
               raw_text: { type: "string" }
             },
-            required: ["name", "english_name", "title", "department", "company", "tax_id", "phone", "company_phone", "extension", "fax", "email", "line_id", "website", "address", "service", "tags", "raw_text"]
+            required: ["name", "english_name", "title", "department", "company", "tax_id", "phone", "company_phone", "extension", "fax", "email", "line_id", "website", "address", "service", "tags", "notes", "raw_text"]
           }
         }
       }
@@ -1153,6 +1156,7 @@ function normalizeParsedCard(parsed) {
     address: cleanText(parsed.address),
     service: cleanText(parsed.service),
     tags: cleanText(parsed.tags),
+    notes: cleanText(parsed.notes),
     raw_text: cleanText(parsed.raw_text)
   };
 }
@@ -1175,6 +1179,7 @@ function normalizeManualFields(fields) {
     address: cleanText(fields.address),
     service: cleanText(fields.service),
     tags: cleanText(fields.tags),
+    notes: cleanText(fields.notes),
     raw_text: cleanText(fields.raw_text || fields.bio)
   };
 }
@@ -1208,7 +1213,7 @@ function buildLineCardRecord(fields, options = {}) {
     "公司地址": fields.address || "",
     "服務項目": fields.service || fields.raw_text || fields.title || fields.company || "",
     "標籤": fields.tags || "",
-    "建檔人/備註": options.source === "ocr" ? "由 mycard GPT OCR 建立" : "由 mycard 手動建立",
+    "建檔人/備註": fields.notes || (options.source === "ocr" ? "由 mycard GPT OCR 建立" : "由 mycard 手動建立"),
     "名片圖檔": cfg.imgUrl || "",
     "自訂名片設定": JSON.stringify(cfg),
     "歸屬網": "personal",

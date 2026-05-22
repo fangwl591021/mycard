@@ -432,6 +432,56 @@ h2 {
   padding: 20px;
 }
 
+.panel-head.compact {
+  margin-bottom: 12px;
+}
+
+.panel-head.compact h2 {
+  margin-bottom: 0;
+}
+
+.compact-editor {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ecard-editor {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbf8;
+}
+
+.ecard-buttons-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 8px;
+}
+
+.ecard-button-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ecard-button-row {
+  display: grid;
+  grid-template-columns: 44px minmax(120px, .8fr) minmax(180px, 1.2fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.ecard-button-row input[type="color"] {
+  height: 42px;
+  padding: 4px;
+}
+
+.compact-empty {
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+
 .segmented {
   display: inline-flex;
   padding: 3px;
@@ -616,7 +666,7 @@ select:focus {
 .line-card-v1 .card-top {
   display: block;
   position: relative;
-  aspect-ratio: 20 / 13;
+  aspect-ratio: var(--line-card-ratio, 20 / 13);
   background: var(--line-card-img) center / cover no-repeat, #f1f5f9;
 }
 
@@ -966,8 +1016,18 @@ select:focus {
   .workspace-grid,
   .metric-grid,
   .editor,
+  .compact-editor,
   .settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .ecard-button-row {
+    grid-template-columns: 42px 1fr;
+  }
+
+  .ecard-button-row input[data-ecard-field="u"],
+  .ecard-button-row button {
+    grid-column: 1 / -1;
   }
 
   .business-card {
