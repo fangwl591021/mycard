@@ -37,6 +37,10 @@ export default {
         return await handleImportLineUsers(request, env);
       }
 
+      if (url.pathname === "/api/admin/import/line-cards" && request.method === "POST") {
+        return await handleImportLineCards(request, env);
+      }
+
       if (url.pathname === "/api/admin/import/status" && request.method === "GET") {
         return await handleImportStatus(request, env);
       }
@@ -251,6 +255,54 @@ async function handleImportLineUsers(request, env) {
   return json({ ok: true, imported_count: imported.length, skipped_count: skipped.length, imported, skipped });
 }
 
+async function handleImportLineCards(request, env) {
+  requireMigrationToken(request, env);
+
+  const body = await request.json().catch(() => ({}));
+  const rows = Array.isArray(body.cards) ? body.cards : [];
+  if (!rows.length) throw new HttpError(400, "missing_cards", "cards must be a non-empty array");
+  if (rows.length > 100) throw new HttpError(400, "too_many_cards", "import at most 100 cards per request");
+
+  const now = new Date().toISOString();
+  const imported = [];
+  const skipped = [];
+
+  for (const row of rows) {
+    const legacy = normalizeLegacyCardContact(row);
+    if (!legacy.owner_line_user_id || !legacy.legacy_row_id) {
+      skipped.push({ legacy_row_id: legacy.legacy_row_id, reason: "missing_owner_or_row_id" });
+      continue;
+    }
+
+    const userId = `line_${sanitizeId(legacy.owner_line_user_id)}`;
+    await ensureLegacyOwnerProfile(env, userId, legacy, now);
+
+    const card = buildLegacyContactCard(userId, legacy, now);
+    await putJson(env, userPath(userId, `cards/${card.card_id}.json`), card);
+    await upsertCardIndex(env, userId, card);
+
+    imported.push({
+      card_id: card.card_id,
+      owner_user_id: userId,
+      legacy_row_id: legacy.legacy_row_id,
+      name: card.fields.name,
+      status: "upserted"
+    });
+  }
+
+  await putJson(env, appPath(env, `imports/line-engine/cards-${Date.now()}.json`), {
+    imported_at: now,
+    source: "line-engine.actmaster_db.card_contacts",
+    total_rows: rows.length,
+    imported_count: imported.length,
+    skipped_count: skipped.length,
+    imported,
+    skipped
+  });
+
+  return json({ ok: true, imported_count: imported.length, skipped_count: skipped.length, imported, skipped });
+}
+
 async function handleImportStatus(request, env) {
   requireMigrationToken(request, env);
   const status = await getImportStatus(env);
@@ -346,6 +398,193 @@ function normalizeLegacyLineUser(row) {
     created_at: cleanText(row.created_at || row.createdAt),
     migrated_at: cleanText(row.migrated_at || row.migratedAt),
     raw: row
+  };
+}
+
+function normalizeLegacyCardContact(row) {
+  const owner = cleanText(row.owner_user_id || row.creator_id || row.profile_user_id || row.line_id);
+  const contactLineId = cleanText(row.line_id || row.profile_user_id);
+  return {
+    legacy_row_id: cleanText(row.row_id || row.rowId),
+    owner_line_user_id: owner || "legacy_orphan_imports",
+    owner_was_missing: !owner,
+    contact_line_user_id: contactLineId,
+    creator_line_user_id: cleanText(row.creator_id),
+    profile_line_user_id: cleanText(row.profile_user_id),
+    name: cleanText(row.name),
+    english_name: cleanText(row.english_name),
+    company: cleanText(row.company_name),
+    title: cleanText(row.title),
+    department: cleanText(row.department),
+    tax_id: cleanText(row.tax_id),
+    phone: cleanText(row.mobile),
+    company_phone: cleanText(row.office_phone),
+    extension: cleanText(row.extension),
+    fax: cleanText(row.fax),
+    email: cleanText(row.email).toLowerCase(),
+    website: cleanText(row.website),
+    line_id: cleanText(row.socials || contactLineId),
+    address: cleanText(row.address),
+    birthday: cleanText(row.birthday),
+    services: cleanText(row.services),
+    notes: cleanText(row.notes),
+    tags: cleanText(row.tags),
+    personality: cleanText(row.personality),
+    hobbies: cleanText(row.hobbies),
+    wealth: cleanText(row.wealth),
+    health: cleanText(row.health),
+    career: cleanText(row.career),
+    image_url: cleanText(row.image_url),
+    custom_config: safeJsonValue(row.custom_config),
+    network_id: cleanText(row.network_id),
+    visibility: cleanText(row.visibility) || "private",
+    source_type: cleanText(row.source_type),
+    ai_review_status: cleanText(row.ai_review_status),
+    pool_eligible: Number(row.pool_eligible || 0),
+    crm_status: cleanText(row.crm_status),
+    crm_type: cleanText(row.crm_type),
+    crm_next_action: cleanText(row.crm_next_action),
+    crm_next_followup_at: cleanText(row.crm_next_followup_at),
+    crm_ai_suggestion: cleanText(row.crm_ai_suggestion),
+    created_at: cleanText(row.created_at),
+    updated_at: cleanText(row.updated_at),
+    raw: row
+  };
+}
+
+async function ensureLegacyOwnerProfile(env, userId, legacy, now) {
+  const key = userPath(userId, "profile.json");
+  const existing = await getJson(env, key);
+  if (existing) return existing;
+  const refCode = createRefCode(userId);
+  const profile = {
+    user_id: userId,
+    login_provider: "line",
+    line_user_id: legacy.owner_line_user_id,
+    line_display_name: legacy.name || legacy.owner_line_user_id,
+    name: legacy.name || legacy.owner_line_user_id,
+    phone: legacy.phone || "",
+    industry: legacy.title || legacy.company || "",
+    plan: "free",
+    roles: ["user"],
+    ref_code: refCode,
+    referral_url: `${appBaseUrl(env)}/r/${refCode}`,
+    source: "line_engine_card_owner_migration",
+    legacy: {
+      line_engine_owner_from_card: {
+        owner_line_user_id: legacy.owner_line_user_id,
+        first_card_row_id: legacy.legacy_row_id
+      }
+    },
+    migrated_at: now,
+    created_at: legacy.created_at || now,
+    updated_at: now
+  };
+  await putJson(env, key, profile);
+  await ensureJson(env, userPath(userId, "indexes/card-fingerprints.json"), { fingerprints: {} });
+  await ensureJson(env, userPath(userId, "indexes/cards.json"), { cards: [] });
+  await ensureJson(env, userPath(userId, "indexes/rents.json"), { rents: [] });
+  await ensureJson(env, userPath(userId, "points/balance.json"), defaultBalance(userId));
+  return profile;
+}
+
+function buildLegacyContactCard(userId, legacy, now) {
+  const cardId = `legacy_card_${sanitizeId(legacy.legacy_row_id)}`;
+  const fields = {
+    name: legacy.name || "",
+    english_name: legacy.english_name || "",
+    title: legacy.title || "",
+    department: legacy.department || "",
+    company: legacy.company || "",
+    tax_id: legacy.tax_id || "",
+    phone: legacy.phone || "",
+    company_phone: legacy.company_phone || "",
+    extension: legacy.extension || "",
+    fax: legacy.fax || "",
+    email: legacy.email || "",
+    line_id: legacy.line_id || "",
+    website: legacy.website || "",
+    address: legacy.address || "",
+    service: legacy.services || "",
+    raw_text: legacy.services || legacy.notes || legacy.personality || "",
+    tags: legacy.tags || ""
+  };
+  const ecardConfig = normalizeLegacyCardConfig(legacy.custom_config, legacy, fields);
+  return {
+    card_id: cardId,
+    owner_user_id: userId,
+    visibility: legacy.visibility === "public" ? "public" : "private",
+    public_slug: "",
+    source: "line_engine_card_contacts",
+    source_image_url: legacy.image_url || "",
+    fields,
+    ecard_config: ecardConfig,
+    line_card: mergeLineCardRecord(buildLineCardRecord(fields, {
+      cardId,
+      userId,
+      source: "legacy_card_contacts"
+    }), {
+      rowId: legacy.legacy_row_id,
+      card_id: cardId,
+      "姓名": fields.name,
+      "英文名": fields.english_name,
+      "職稱": fields.title,
+      "部門": fields.department,
+      "公司名稱": fields.company,
+      "統一編號": fields.tax_id,
+      "手機號碼": fields.phone,
+      "公司電話": fields.company_phone,
+      "分機": fields.extension,
+      "傳真": fields.fax,
+      "電子郵件": fields.email,
+      "公司網址": fields.website,
+      "社群帳號": fields.line_id,
+      "公司地址": fields.address,
+      "服務項目": fields.service,
+      "標籤": fields.tags,
+      "圖片網址": legacy.image_url || "",
+      "自訂名片設定": JSON.stringify(ecardConfig)
+    }),
+    reward_status: "not_eligible",
+    reward_points: 0,
+    crm: {
+      status: legacy.crm_status,
+      type: legacy.crm_type,
+      next_action: legacy.crm_next_action,
+      next_followup_at: legacy.crm_next_followup_at,
+      ai_suggestion: legacy.crm_ai_suggestion
+    },
+    legacy_source: {
+      system: "line-engine",
+      table: "card_contacts",
+      row_id: legacy.legacy_row_id,
+      owner_user_id: legacy.owner_line_user_id,
+      owner_was_missing: legacy.owner_was_missing,
+      source_type: legacy.source_type,
+      network_id: legacy.network_id,
+      ai_review_status: legacy.ai_review_status,
+      pool_eligible: legacy.pool_eligible
+    },
+    created_at: legacy.created_at || now,
+    updated_at: legacy.updated_at || now
+  };
+}
+
+function normalizeLegacyCardConfig(config, legacy, fields) {
+  const cfg = config && typeof config === "object" && !Array.isArray(config) ? config : {};
+  return {
+    layoutStyle: cfg.layoutStyle || "landscape",
+    imgUrl: cfg.imgUrl || legacy.image_url || "",
+    imgUrlPortrait: cfg.imgUrlPortrait || "",
+    imgUrlSquare: cfg.imgUrlSquare || "",
+    imgRatioLandscape: cfg.imgRatioLandscape || "20:13",
+    imgRatioPortrait: cfg.imgRatioPortrait || "2:3",
+    imgRatioSquare: cfg.imgRatioSquare || "1:1",
+    desc: cfg.desc || fields.service || fields.raw_text || "",
+    descAlign: cfg.descAlign || "center",
+    descColor: cfg.descColor || "#666666",
+    buttons: Array.isArray(cfg.buttons) ? cfg.buttons : buildDefaultEcardConfig(fields).buttons,
+    migratedFrom: "line-engine.card_contacts"
   };
 }
 
