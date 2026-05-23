@@ -27,6 +27,13 @@ const HUB_MODULES = [
   }
 ];
 
+const V2_SOCIAL_ICONS = {
+  YT: "https://aiwe.cc/wp-content/uploads/2026/02/87e6f8054bd3672f2885e38bddb112e2.png",
+  FB: "https://aiwe.cc/wp-content/uploads/2026/02/3986d1fd62384c8cdaa0e7c82f2740d1.png",
+  LINE: "https://aiwe.cc/wp-content/uploads/2026/02/b75a5831fd553c7130aeafbb9783cf79.png",
+  TEL: "https://aiwe.cc/wp-content/uploads/2026/02/7254567388850a6b4d77b75208ebd4b8.png"
+};
+
 const BUILTIN_TEMPLATE_SAMPLE_DATA = {
   "ecard-v1-video-guide": {
     title: "Video guide sample",
@@ -49,22 +56,21 @@ const BUILTIN_TEMPLATE_SAMPLE_DATA = {
     ]
   },
   "ecard-v2-business-card": {
-    name: "Tony Fang",
-    title: "Creative Director",
-    company: "MyCard",
-    description: "Standard digital business card sample with avatar, social icons, contact buttons, and a gradient background.",
-    logo_url: "https://aiwe.cc/wp-content/uploads/2026/02/6e1716a9965b002e6c25ab6f9d383e60.jpg",
-    phone: "0912345678",
-    line_id: "@mycard",
-    background: { type: "gradient", angle: 88, startColor: "#57142b", endColor: "#46250c" },
+    logo: "https://aiwe.cc/wp-content/uploads/2026/02/6e1716a9965b002e6c25ab6f9d383e60.jpg",
+    title: "請輸入姓名或公司名稱",
+    desc: "✨ 一行建議16個字\n✨ 可以簡介公司或是活動內容\n✨ 四到六排的高度較為適中，不建議太長\n✨ 多分享、多收穫",
+    title_align: "start",
+    background: { type: "linearGradient", angle: "88deg", startColor: "#57142b", endColor: "#46250c" },
     socials: [
-      { type: "YT", iconUrl: "https://aiwe.cc/wp-content/uploads/2026/02/87e6f8054bd3672f2885e38bddb112e2.png", uri: "https://youtube.com" },
-      { type: "FB", iconUrl: "https://aiwe.cc/wp-content/uploads/2026/02/3986d1fd62384c8cdaa0e7c82f2740d1.png", uri: "https://facebook.com" },
-      { type: "LINE", iconUrl: "https://aiwe.cc/wp-content/uploads/2026/02/b75a5831fd553c7130aeafbb9783cf79.png", uri: "https://line.me" },
-      { type: "TEL", iconUrl: "https://aiwe.cc/wp-content/uploads/2026/02/7254567388850a6b4d77b75208ebd4b8.png", uri: "tel:0912345678" }
+      { type: "YT", u: "https://youtube.com" },
+      { type: "FB", u: "https://facebook.com" },
+      { type: "LINE", u: "https://line.me" },
+      { type: "TEL", u: "tel:0912345678" }
     ],
     buttons: [
-      { label: "New Button", uri: "https://line.me", color: "#ffffff" }
+      { t: "New Button", u: "https://line.me" },
+      { t: "New Button", u: "https://line.me" },
+      { t: "New Button", u: "https://line.me" }
     ]
   },
   "ecard-v3-catalog": {
@@ -1932,65 +1938,113 @@ function buildEcardFlex(template, input = {}) {
 }
 
 function buildBusinessCardFlex(input = {}) {
-  const title = cleanText(input.name || input.title || input.company || "Digital Business Card");
-  const role = cleanText([input.job_title || input.position || input.title, input.company].filter(Boolean).join(" | "));
-  const desc = cleanText(input.description || input.desc || input.service || input.bio || input.raw_text || "Nice to exchange business cards with you.");
-  const logoUrl = cleanText(input.logo_url || input.logoUrl || input.avatar_url || input.image_url || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png");
+  const title = cleanText(input.title || input.name || input.company || "請輸入姓名或公司名稱");
+  const desc = cleanText(input.desc || input.description || input.service || input.bio || input.raw_text || "Nice to exchange business cards with you.");
+  const titleAlign = cleanText(input.title_align || input.titleAlign || "start") === "center" ? "center" : "start";
+  const logoUrl = cleanText(input.logo || input.logo_url || input.logoUrl || input.avatar_url || input.image_url || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png");
   const background = normalizeFlexBackground(input.background || input.ecard_config?.background);
-  const socials = Array.isArray(input.socials) ? input.socials : [];
+  const socials = normalizeV2Socials(input.socials);
   const buttons = normalizeFlexButtons(input.buttons || input.ecard_config?.buttons || defaultHubButtons(input));
-  const body = {
-    type: "box",
-    layout: "vertical",
-    paddingAll: "20px",
-    spacing: "md",
-    background,
-    contents: [
+  const shareButton = buttons.find((button) => /share|分享/i.test(button.label));
+  const regularButtons = buttons.filter((button) => button !== shareButton);
+  const bodyContents = [
+    ...(shareButton ? [{
+      type: "box",
+      layout: "vertical",
+      position: "absolute",
+      offsetTop: "14px",
+      offsetEnd: "14px",
+      backgroundColor: "#FFFFFFE8",
+      cornerRadius: "100px",
+      paddingTop: "6px",
+      paddingBottom: "6px",
+      paddingStart: "14px",
+      paddingEnd: "14px",
+      contents: [{ type: "text", text: "分享", size: "xs", weight: "bold", color: "#111827" }],
+      action: { type: "uri", uri: sanitizeFlexUri(shareButton.uri) }
+    }] : []),
+    {
+      type: "box",
+      layout: "vertical",
+      width: "100px",
+      height: "100px",
+      cornerRadius: "100px",
+      margin: "lg",
+      contents: [{ type: "image", url: logoUrl, size: "full", aspectMode: "cover", aspectRatio: "1:1" }]
+    },
+    {
+      type: "box",
+      layout: "vertical",
+      alignItems: "center",
+      margin: "sm",
+      paddingAll: "0px",
+      contents: [
+        { type: "text", text: title, weight: "bold", size: "lg", color: "#ffffff", align: titleAlign, adjustMode: "shrink-to-fit" },
+        { type: "text", text: desc, size: "sm", color: "#ffffff", align: titleAlign, wrap: true, margin: "sm" }
+      ]
+    }
+  ];
+  if (socials.length) {
+    bodyContents.push(
       {
         type: "box",
         layout: "horizontal",
-        contents: [
-          { type: "image", url: logoUrl, size: "72px", aspectRatio: "1:1", aspectMode: "cover" },
-          {
-            type: "box",
-            layout: "vertical",
-            margin: "md",
-            contents: [
-              { type: "text", text: title, weight: "bold", size: "xl", wrap: true, color: "#ffffff" },
-              { type: "text", text: role || "Digital Business Card", size: "sm", wrap: true, color: "#f7ead7" }
-            ]
-          }
-        ]
-      },
-      { type: "text", text: desc, size: "sm", wrap: true, color: "#fff7ed", margin: "lg" },
-      {
-        type: "box",
-        layout: "horizontal",
-        spacing: "sm",
-        margin: "md",
+        justifyContent: "center",
+        spacing: "xl",
+        paddingTop: "xs",
+        paddingBottom: "xs",
+        margin: "lg",
         contents: socials.slice(0, 5).map((item) => ({
           type: "image",
-          url: cleanText(item.iconUrl || item.icon_url || item.url || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png"),
-          size: "28px",
-          action: item.link || item.uri ? { type: "uri", uri: cleanText(item.link || item.uri) } : undefined
+          url: item.iconUrl,
+          size: "70px",
+          aspectRatio: "1:1",
+          animated: true,
+          action: { type: "uri", uri: sanitizeFlexUri(item.uri) }
         }))
       }
-    ].filter((item) => item.type !== "box" || item.contents?.length !== 0)
-  };
+    );
+  }
+  if (regularButtons.length) {
+    bodyContents.push({
+      type: "box",
+      layout: "vertical",
+      spacing: "none",
+      margin: "lg",
+      alignItems: "center",
+      contents: regularButtons.slice(0, 6).map((button) => ({
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#ffffff",
+        cornerRadius: "100px",
+        paddingAll: "md",
+        width: "260px",
+        margin: "lg",
+        alignItems: "center",
+        contents: [{
+          type: "text",
+          text: button.label,
+          color: "#333333",
+          align: "center",
+          weight: "bold",
+          size: "sm",
+          adjustMode: "shrink-to-fit"
+        }],
+        action: { type: "uri", uri: sanitizeFlexUri(button.uri) }
+      }))
+    });
+  }
+  bodyContents.push({ type: "box", layout: "vertical", height: "10px", contents: [] });
   return {
     type: "bubble",
     size: "mega",
-    body,
-    footer: {
+    body: {
       type: "box",
       layout: "vertical",
-      spacing: "sm",
-      contents: buttons.slice(0, 4).map((button) => ({
-        type: "button",
-        style: "primary",
-        color: cleanText(button.c || button.color || "#06C755"),
-        action: { type: "uri", label: cleanText(button.l || button.label || "Open"), uri: cleanText(button.u || button.uri || "https://line.me") }
-      }))
+      paddingAll: "0px",
+      alignItems: "center",
+      background,
+      contents: bodyContents
     }
   };
 }
@@ -2079,6 +2133,17 @@ function normalizeFlexBackground(value) {
   return { type: "linearGradient", angle: "88deg", startColor: "#57142b", endColor: "#46250c" };
 }
 
+function normalizeV2Socials(socials) {
+  return (Array.isArray(socials) ? socials : []).map((item) => {
+    const type = cleanText(item.type || "LINE").toUpperCase();
+    return {
+      type,
+      iconUrl: cleanText(item.iconUrl || item.icon_url || item.url || V2_SOCIAL_ICONS[type] || V2_SOCIAL_ICONS.LINE),
+      uri: cleanText(item.uri || item.u || item.link || "https://line.me")
+    };
+  });
+}
+
 function defaultHubButtons(input = {}) {
   const phone = normalizePhone(input.phone || input.tel || "");
   const lineId = cleanText(input.line_id || input.lineId || input.social || "");
@@ -2091,10 +2156,16 @@ function defaultHubButtons(input = {}) {
 
 function normalizeFlexButtons(buttons) {
   return (Array.isArray(buttons) ? buttons : []).map((button) => ({
-    label: cleanText(button.label || button.l || button.text || "Open"),
+    label: cleanText(button.label || button.l || button.t || button.text || "Open"),
     uri: cleanText(button.uri || button.u || button.url || "https://line.me"),
     color: cleanText(button.color || button.c || "#06C755")
   }));
+}
+
+function sanitizeFlexUri(value) {
+  const uri = cleanText(value || "https://line.me");
+  if (/^(https?|tel|line):/i.test(uri)) return uri;
+  return `https://${uri}`;
 }
 
 function toLineButton(button) {

@@ -43,18 +43,27 @@ const els = {
 };
 
 const defaultCardData = {
-  name: "Tony Fang",
-  title: "Creative Director",
-  company: "MyCard",
-  phone: "0912345678",
-  line_id: "@mycard",
-  description: "Content Hub preview data for generating reusable Flex JSON.",
+  logo: "https://aiwe.cc/wp-content/uploads/2026/02/6e1716a9965b002e6c25ab6f9d383e60.jpg",
+  title: "請輸入姓名或公司名稱",
+  desc: "✨ 一行建議16個字\n✨ 可以簡介公司或是活動內容\n✨ 四到六排的高度較為適中，不建議太長\n✨ 多分享、多收穫",
+  title_align: "start",
   background: {
-    type: "gradient",
-    angle: 88,
+    type: "linearGradient",
+    angle: "88deg",
     startColor: "#57142b",
     endColor: "#46250c"
-  }
+  },
+  socials: [
+    { type: "YT", u: "https://youtube.com" },
+    { type: "FB", u: "https://facebook.com" },
+    { type: "LINE", u: "https://line.me" },
+    { type: "TEL", u: "tel:0912345678" }
+  ],
+  buttons: [
+    { t: "New Button", u: "https://line.me" },
+    { t: "New Button", u: "https://line.me" },
+    { t: "New Button", u: "https://line.me" }
+  ]
 };
 
 const defaultRichMenu = {
@@ -199,27 +208,54 @@ async function validateRichMenu() {
 
 function renderEcardPreview(data = {}, flex = {}, templateId = "") {
   if (!els.ecardPreview) return;
-  const background = flex?.body?.background || {};
+  const background = flex?.body?.background || normalizePreviewBackground(data.background || {});
   const start = background.startColor || background.color || "#57142b";
   const end = background.endColor || background.color || "#46250c";
   const angle = background.angle || "88deg";
-  const image = data.logo_url || data.logoUrl || data.avatar_url || data.image_url || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png";
+  const image = data.logo || data.logo_url || data.logoUrl || data.avatar_url || data.image_url || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png";
   els.ecardPreview.style.background = background.type === "linearGradient"
     ? `linear-gradient(${angle}, ${start}, ${end})`
     : start;
   els.ecardPreviewBadge.textContent = templateId.replace("ecard-", "").toUpperCase();
   els.ecardPreviewAvatar.src = image;
-  els.ecardPreviewName.textContent = data.name || data.title || data.company || "E-card";
-  els.ecardPreviewRole.textContent = [data.title, data.company].filter(Boolean).join(" | ") || "Digital Business Card";
-  els.ecardPreviewDesc.textContent = data.description || data.desc || data.service || data.bio || "Nice to exchange cards with you.";
+  els.ecardPreviewName.textContent = data.title || data.name || data.company || "E-card";
+  els.ecardPreviewRole.textContent = "";
+  els.ecardPreviewDesc.textContent = data.desc || data.description || data.service || data.bio || "Nice to exchange cards with you.";
+  els.ecardPreviewDesc.style.textAlign = data.title_align === "center" ? "center" : "left";
+  const socials = Array.isArray(data.socials) ? data.socials : [];
   const buttons = Array.isArray(data.buttons) && data.buttons.length ? data.buttons : [
-    { label: "LINE", color: "#06C755" },
-    { label: "Call", color: "#3b82f6" },
-    { label: "Map", color: "#1e293b" }
+    { t: "New Button", u: "https://line.me" }
   ];
-  els.ecardPreviewActions.innerHTML = buttons.slice(0, 4).map((button) => `
-    <span style="background:${escapeHtml(button.color || button.c || "#06C755")}">${escapeHtml(button.label || button.l || "Open")}</span>
+  const socialHtml = socials.length ? `<div class="ecard-preview-socials">${socials.slice(0, 5).map((item) => `
+    <img src="${escapeHtml(item.iconUrl || item.icon_url || socialIconUrl(item.type))}" alt="${escapeHtml(item.type || "")}">
+  `).join("")}</div>` : "";
+  const buttonHtml = buttons.filter((button) => !/share|分享/i.test(button.t || button.label || button.l || "")).slice(0, 6).map((button) => `
+    <span>${escapeHtml(button.t || button.label || button.l || "New Button")}</span>
   `).join("");
+  els.ecardPreviewActions.innerHTML = `${socialHtml}${buttonHtml}`;
+}
+
+function normalizePreviewBackground(background) {
+  if (background?.type === "linearGradient") return background;
+  if (background?.type === "gradient") {
+    return {
+      type: "linearGradient",
+      angle: `${Number(background.angle || 88)}deg`,
+      startColor: background.startColor || background.start_color || "#57142b",
+      endColor: background.endColor || background.end_color || "#46250c"
+    };
+  }
+  return background;
+}
+
+function socialIconUrl(type = "LINE") {
+  const icons = {
+    YT: "https://aiwe.cc/wp-content/uploads/2026/02/87e6f8054bd3672f2885e38bddb112e2.png",
+    FB: "https://aiwe.cc/wp-content/uploads/2026/02/3986d1fd62384c8cdaa0e7c82f2740d1.png",
+    LINE: "https://aiwe.cc/wp-content/uploads/2026/02/b75a5831fd553c7130aeafbb9783cf79.png",
+    TEL: "https://aiwe.cc/wp-content/uploads/2026/02/7254567388850a6b4d77b75208ebd4b8.png"
+  };
+  return icons[String(type).toUpperCase()] || icons.LINE;
 }
 
 function renderRichMenuPreview(menu = {}, issues = []) {
