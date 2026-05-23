@@ -332,6 +332,54 @@
   font-weight: 800;
 }
 
+.voom-preview-card {
+  display: grid;
+  gap: 14px;
+}
+
+.voom-media-frame {
+  width: 100%;
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #000;
+  color: #cfdad3;
+}
+
+.voom-media-frame video,
+.voom-media-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.voom-links {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfb;
+}
+
+.voom-links p {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  margin: 0;
+  align-items: center;
+}
+
+.voom-links code {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #0074d9;
+}
+
 .segment.active {
   border-color: var(--accent);
   background: #e9f4ef;

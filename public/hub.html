@@ -140,16 +140,36 @@
     </section>
 
     <section class="hub-panel" id="panel-voom">
-      <section class="hub-card">
-        <div class="panel-head">
-          <h2>LINE VOOM 擷取測試</h2>
-          <button class="ghost-button" id="extractVoomBtn" type="button">擷取</button>
-        </div>
-        <label>VOOM 貼文網址
-          <input id="voomUrlInput" type="url" placeholder="https://linevoom.line.me/post/...">
-        </label>
-        <pre id="voomOutput">{}</pre>
-      </section>
+      <div class="hub-two-col">
+        <section class="hub-card">
+          <div class="panel-head">
+            <h2>LINE VOOM ????</h2>
+            <button class="ghost-button" id="extractVoomBtn" type="button">??</button>
+          </div>
+          <label>VOOM ????
+            <input id="voomUrlInput" type="url" placeholder="https://linevoom.line.me/post/...">
+          </label>
+          <div class="voom-preview-card">
+            <div class="panel-head compact">
+              <h2>????</h2>
+              <span class="storage-badge" id="voomSizeBadge">????</span>
+            </div>
+            <div class="voom-media-frame" id="voomMediaFrame">
+              <span>??????????</span>
+            </div>
+            <div class="voom-links">
+              <p><strong>????</strong><code id="voomVideoUrl">-</code></p>
+              <p><strong>????</strong><code id="voomThumbUrl">-</code></p>
+            </div>
+          </div>
+        </section>
+        <section class="hub-card output-card">
+          <div class="panel-head">
+            <h2>???? JSON</h2>
+          </div>
+          <pre id="voomOutput">{}</pre>
+        </section>
+      </div>
     </section>
 
     <section class="hub-panel" id="panel-sdk">

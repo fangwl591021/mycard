@@ -33,6 +33,10 @@ const els = {
   richMenuPreviewBadge: document.querySelector("#richMenuPreviewBadge"),
   voomUrlInput: document.querySelector("#voomUrlInput"),
   voomOutput: document.querySelector("#voomOutput"),
+  voomMediaFrame: document.querySelector("#voomMediaFrame"),
+  voomSizeBadge: document.querySelector("#voomSizeBadge"),
+  voomVideoUrl: document.querySelector("#voomVideoUrl"),
+  voomThumbUrl: document.querySelector("#voomThumbUrl"),
   adminTokenInput: document.querySelector("#adminTokenInput")
 };
 
@@ -240,11 +244,71 @@ async function extractVoom() {
     setOutput(els.voomOutput, { status: "processing" });
     const result = await hub.voom.extract(url);
     setOutput(els.voomOutput, result);
+    renderVoomPreview(result.job?.result || result.result || result);
     showToast("VOOM 擷取完成");
   } catch (error) {
     setOutput(els.voomOutput, { success: false, message: error.message });
     showToast("VOOM 擷取失敗");
   }
+}
+
+function renderVoomPreview(result = {}) {
+  if (!els.voomMediaFrame) return;
+  const videoUrl = result.videoUrl || result.video_url || "";
+  const thumbnailUrl = result.thumbnailUrl || result.thumbnail_url || result.images?.[0] || "";
+  els.voomVideoUrl.textContent = videoUrl || "-";
+  els.voomThumbUrl.textContent = thumbnailUrl || "-";
+  els.voomSizeBadge.textContent = "讀取尺寸中";
+  els.voomMediaFrame.innerHTML = "";
+
+  if (videoUrl) {
+    const video = document.createElement("video");
+    video.controls = true;
+    video.preload = "metadata";
+    video.playsInline = true;
+    video.src = videoUrl;
+    if (thumbnailUrl) video.poster = thumbnailUrl;
+    video.addEventListener("loadedmetadata", () => {
+      setVoomSize(video.videoWidth, video.videoHeight, "真實畫質");
+    });
+    video.addEventListener("error", () => {
+      renderVoomImage(thumbnailUrl);
+    });
+    els.voomMediaFrame.append(video);
+    return;
+  }
+
+  renderVoomImage(thumbnailUrl);
+}
+
+function renderVoomImage(url) {
+  els.voomMediaFrame.innerHTML = "";
+  if (!url) {
+    els.voomSizeBadge.textContent = "沒有媒體";
+    els.voomMediaFrame.innerHTML = "<span>沒有擷取到影片或縮圖</span>";
+    return;
+  }
+  const image = document.createElement("img");
+  image.alt = "";
+  image.src = url;
+  image.addEventListener("load", () => {
+    setVoomSize(image.naturalWidth, image.naturalHeight, "真實畫質");
+  });
+  image.addEventListener("error", () => {
+    els.voomSizeBadge.textContent = "媒體無法載入";
+  });
+  els.voomMediaFrame.append(image);
+}
+
+function setVoomSize(width, height, label) {
+  const safeWidth = Number(width || 0);
+  const safeHeight = Number(height || 0);
+  if (!safeWidth || !safeHeight) {
+    els.voomSizeBadge.textContent = "無法取得尺寸";
+    return;
+  }
+  els.voomSizeBadge.textContent = `${label}: ${safeWidth} × ${safeHeight}`;
+  els.voomMediaFrame.style.aspectRatio = `${safeWidth} / ${safeHeight}`;
 }
 
 async function seedTemplates() {
@@ -315,4 +379,5 @@ setOutput(els.richMenuOutput, {});
 setOutput(els.voomOutput, {});
 renderEcardPreview(defaultCardData, {}, "ecard-v2-business-card");
 renderRichMenuPreview(defaultRichMenu, []);
+renderVoomPreview({});
 loadHub();
