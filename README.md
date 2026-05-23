@@ -20,6 +20,50 @@
 D:\OneDrive\文件\名片王\public\index.html
 ```
 
+## Content Hub API
+
+名片王後續作為內容倉庫與共用工具能力中台。第一版已建立 `/api/hub/*` API 與輕量 SDK，資料庫以 Wasabi JSON / Object Storage 為準，不使用 KV、D1、R2 當主要資料庫。
+
+### 已建立的模組
+
+- `ecard`: 電子名片模板庫，先提供 V1 / V2 / V3 / V4 內建模板與 Flex JSON 產生器。
+- `rich-menu`: 圖文選單工具，先提供 Rich Menu schema 正規化、驗證、LINE payload render 與發布入口。
+- `voom`: LINE VOOM 影片擷取器，先提供 URL 擷取工作與 Wasabi JSON job 紀錄。
+
+### API
+
+```text
+GET  /api/hub/modules
+GET  /api/hub/templates
+GET  /api/hub/templates?type=ecard
+GET  /api/hub/templates/{template_id}
+POST /api/hub/ecard/render
+POST /api/hub/ecard/flex
+POST /api/hub/richmenus/validate
+POST /api/hub/richmenus/render
+POST /api/hub/richmenus/publish
+POST /api/hub/voom/extract
+GET  /api/hub/voom/jobs/{job_id}
+```
+
+### SDK
+
+```js
+import { createMyCardHub } from "https://myvard.fangwl591021.workers.dev/sdk/mycard-hub.js";
+
+const hub = createMyCardHub({
+  apiBase: "https://myvard.fangwl591021.workers.dev",
+  token: userToken
+});
+
+const templates = await hub.ecard.listTemplates();
+const flex = await hub.ecard.generateFlex("ecard-v2-business-card", {
+  name: "方萬隆",
+  title: "創意總監",
+  company: "名片王"
+});
+```
+
 Worker 開發模式：
 
 ```bash

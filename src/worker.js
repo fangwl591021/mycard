@@ -1,6 +1,89 @@
 const TEXT_ENCODER = new TextEncoder();
 const CARD_REWARD_POINTS = 10;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const CONTENT_HUB_VERSION = "0.1.0";
+
+const HUB_MODULES = [
+  {
+    id: "rich-menu",
+    name: "圖文選單工具",
+    type: "tool",
+    status: "planned",
+    description: "共用 LINE Rich Menu schema、座標區塊驗證、Flex/LINE action 正規化與發布流程。"
+  },
+  {
+    id: "voom",
+    name: "LINE VOOM 影片擷取器",
+    type: "tool",
+    status: "planned",
+    description: "集中處理 LINE VOOM URL 解析、影片/縮圖/圖片擷取與 Wasabi JSON 工作紀錄。"
+  },
+  {
+    id: "ecard",
+    name: "電子名片模板庫",
+    type: "template-library",
+    status: "active",
+    description: "提供電子名片模板規格、欄位正規化與 Flex JSON 產生器。"
+  }
+];
+
+const BUILTIN_TEMPLATES = [
+  {
+    template_id: "ecard-v1-video-guide",
+    module: "ecard",
+    kind: "flex",
+    name: "影片導購名片 V1",
+    source: "mylittlesys",
+    version: "1.0.0",
+    status: "builtin",
+    description: "參考 mylittlesys 的 V1 影片導購 Flex 結構，保留 video、preview、標題、說明與 CTA 欄位。",
+    fields: ["title", "description", "video_url", "preview_url", "buttons", "socials"]
+  },
+  {
+    template_id: "ecard-v2-business-card",
+    module: "ecard",
+    kind: "flex",
+    name: "個人名片 V2",
+    source: "mylittlesys",
+    version: "1.0.0",
+    status: "builtin",
+    description: "標準數位名片結構，含大頭貼、背景色/漸層、社群圖示、聯絡按鈕與角落分享徽章。",
+    fields: ["name", "title", "company", "description", "logo_url", "background", "socials", "buttons"]
+  },
+  {
+    template_id: "ecard-v3-catalog",
+    module: "ecard",
+    kind: "flex",
+    name: "商品目錄 V3",
+    source: "mylittlesys",
+    version: "1.0.0",
+    status: "builtin",
+    description: "商品列表型 Flex 結構，保留主圖、商品項目、價格、按鈕與社群入口。",
+    fields: ["title", "hero_url", "items", "socials", "button_color"]
+  },
+  {
+    template_id: "ecard-v4-video-rich-menu",
+    module: "ecard",
+    kind: "flex",
+    name: "影音圖文選單 V4",
+    source: "mylittlesys",
+    version: "1.0.0",
+    status: "builtin",
+    description: "影音圖文選單模板，保留影片、底圖、設計寬度與可點擊區塊座標。",
+    fields: ["header_text", "video_url", "preview_url", "base_image", "zones"]
+  },
+  {
+    template_id: "rich-menu-basic-2500",
+    module: "rich-menu",
+    kind: "rich-menu",
+    name: "標準圖文選單 2500",
+    source: "mylittlesys",
+    version: "1.0.0",
+    status: "builtin",
+    description: "LINE Rich Menu 基本資料格式，支援 chatBarText、size、areas 與 URI/message/richmenuswitch actions。",
+    fields: ["size", "chatBarText", "areas"]
+  }
+];
 
 export default {
   async fetch(request, env) {
@@ -31,6 +114,44 @@ export default {
           card_upload_reward_points: CARD_REWARD_POINTS,
           storage_note: "資料以 Wasabi JSON / 圖片保存；Worker 不使用 KV、D1、R2。"
         });
+      }
+
+      if (url.pathname === "/api/hub/modules" && request.method === "GET") {
+        return await handleHubModules(request, env);
+      }
+
+      if (url.pathname === "/api/hub/templates" && request.method === "GET") {
+        return await handleHubTemplates(request, env);
+      }
+
+      const hubTemplateRoute = url.pathname.match(/^\/api\/hub\/templates\/([^/]+)$/);
+      if (hubTemplateRoute && request.method === "GET") {
+        return await handleHubTemplate(request, env, hubTemplateRoute[1]);
+      }
+
+      if ((url.pathname === "/api/hub/ecard/render" || url.pathname === "/api/hub/ecard/flex") && request.method === "POST") {
+        return await handleHubEcardFlex(request, env);
+      }
+
+      if (url.pathname === "/api/hub/richmenus/validate" && request.method === "POST") {
+        return await handleHubRichMenuValidate(request, env);
+      }
+
+      if (url.pathname === "/api/hub/richmenus/render" && request.method === "POST") {
+        return await handleHubRichMenuRender(request, env);
+      }
+
+      if (url.pathname === "/api/hub/richmenus/publish" && request.method === "POST") {
+        return await handleHubRichMenuPublish(request, env);
+      }
+
+      if (url.pathname === "/api/hub/voom/extract" && request.method === "POST") {
+        return await handleHubVoomExtract(request, env);
+      }
+
+      const hubVoomJobRoute = url.pathname.match(/^\/api\/hub\/voom\/jobs\/([^/]+)$/);
+      if (hubVoomJobRoute && request.method === "GET") {
+        return await handleHubVoomJob(request, env, hubVoomJobRoute[1]);
       }
 
       if (url.pathname === "/api/admin/import/line-users" && request.method === "POST") {
@@ -119,6 +240,106 @@ export default {
     }
   }
 };
+
+async function handleHubModules(_request, env) {
+  return hubJson({
+    version: CONTENT_HUB_VERSION,
+    storage: {
+      provider: "wasabi",
+      bucket: env.WASABI_BUCKET || "tonyuse",
+      region: env.WASABI_REGION || "us-west-1",
+      endpoint: env.WASABI_ENDPOINT || "https://s3.us-west-1.wasabisys.com",
+      base_prefix: hubPath(env, "")
+    },
+    modules: HUB_MODULES
+  });
+}
+
+async function handleHubTemplates(request, env) {
+  const url = new URL(request.url);
+  const type = sanitizeHubType(url.searchParams.get("type") || url.searchParams.get("module") || "");
+  const templates = await loadHubTemplates(env, type);
+  return hubJson({ templates, count: templates.length });
+}
+
+async function handleHubTemplate(_request, env, templateId) {
+  const template = await loadHubTemplate(env, templateId);
+  if (!template) throw new HttpError(404, "template_not_found", "Template not found");
+  return hubJson({ template });
+}
+
+async function handleHubEcardFlex(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const templateId = sanitizeId(body.template_id || body.templateId || "ecard-v2-business-card");
+  const template = await loadHubTemplate(env, templateId);
+  if (!template) throw new HttpError(404, "template_not_found", "Template not found");
+  if (template.module !== "ecard") throw new HttpError(400, "not_ecard_template", "Template is not an ecard template");
+
+  const input = body.data && typeof body.data === "object" ? body.data : body;
+  const flex = buildEcardFlex(template, input);
+  return hubJson({
+    template_id: template.template_id,
+    template_name: template.name,
+    flex,
+    preview: {
+      title: input.name || input.title || input.company || template.name,
+      altText: `${input.name || input.company || "電子名片"}`
+    }
+  });
+}
+
+async function handleHubRichMenuValidate(request, _env) {
+  const body = await request.json().catch(() => ({}));
+  const richMenu = normalizeRichMenuConfig(body.richMenu || body.config || body);
+  const issues = validateRichMenuConfig(richMenu);
+  return hubJson({ valid: issues.length === 0, issues, richMenu });
+}
+
+async function handleHubRichMenuRender(request, _env) {
+  const body = await request.json().catch(() => ({}));
+  const richMenu = normalizeRichMenuConfig(body.richMenu || body.config || body);
+  const issues = validateRichMenuConfig(richMenu);
+  if (issues.length) throw new HttpError(400, "invalid_rich_menu", issues.map((item) => item.message).join("; "));
+  return hubJson({ richMenu, linePayload: toLineRichMenuPayload(richMenu) });
+}
+
+async function handleHubRichMenuPublish(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const token = body.channelAccessToken || body.channel_access_token || env.LINE_CHANNEL_ACCESS_TOKEN || "";
+  const imageBase64 = body.imageBase64 || body.image_base64 || "";
+  const richMenu = normalizeRichMenuConfig(body.richMenu || body.config || body);
+  const issues = validateRichMenuConfig(richMenu);
+  if (issues.length) throw new HttpError(400, "invalid_rich_menu", issues.map((item) => item.message).join("; "));
+  if (!token) throw new HttpError(400, "missing_line_channel_token", "Missing LINE channel access token");
+  if (!imageBase64) throw new HttpError(400, "missing_rich_menu_image", "Missing rich menu image base64");
+  const result = await publishLineRichMenu(token, richMenu, imageBase64);
+  return hubJson(result);
+}
+
+async function handleHubVoomExtract(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const sourceUrl = cleanText(body.url || body.source_url);
+  if (!sourceUrl) throw new HttpError(400, "missing_voom_url", "Missing LINE VOOM URL");
+  const parsed = await extractVoomAssets(sourceUrl);
+  const jobId = `voom_${Date.now()}_${randomString(8)}`;
+  const job = {
+    job_id: jobId,
+    module: "voom",
+    source_url: sourceUrl,
+    status: parsed.videoUrl || parsed.images.length ? "extracted" : "needs_review",
+    result: parsed,
+    created_at: new Date().toISOString()
+  };
+  await safePutHubJson(env, `modules/voom/items/${jobId}.json`, job);
+  return hubJson({ job });
+}
+
+async function handleHubVoomJob(_request, env, jobId) {
+  const safeJobId = sanitizeId(jobId);
+  const job = await safeGetHubJson(env, `modules/voom/items/${safeJobId}.json`);
+  if (!job) throw new HttpError(404, "voom_job_not_found", "VOOM job not found");
+  return hubJson({ job });
+}
 
 async function handleLineAuth(request, env) {
   const body = await request.json().catch(() => ({}));
@@ -1351,6 +1572,370 @@ function normalizePhone(value) {
 
 function cleanText(value) {
   return String(value || "").trim();
+}
+
+function hubJson(data, init = {}) {
+  return json({
+    success: true,
+    code: "ok",
+    ...data
+  }, init);
+}
+
+function sanitizeHubType(value) {
+  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+}
+
+async function loadHubTemplates(env, type = "") {
+  const builtin = BUILTIN_TEMPLATES.filter((item) => !type || item.module === type || item.kind === type);
+  const index = await safeGetHubJson(env, type ? `modules/${type}/indexes/templates.json` : "indexes/templates.json");
+  const ids = Array.isArray(index?.templates) ? index.templates : [];
+  const stored = [];
+  for (const item of ids.slice(0, 200)) {
+    const id = sanitizeId(typeof item === "string" ? item : item.template_id);
+    if (!id) continue;
+    const template = await safeGetHubJson(env, `modules/${type || "ecard"}/templates/${id}.json`);
+    if (template) stored.push(template);
+  }
+  const byId = new Map([...builtin, ...stored].map((item) => [item.template_id, item]));
+  return Array.from(byId.values()).filter((item) => !type || item.module === type || item.kind === type);
+}
+
+async function loadHubTemplate(env, templateId) {
+  const safeTemplateId = sanitizeId(templateId);
+  const builtin = BUILTIN_TEMPLATES.find((item) => item.template_id === safeTemplateId);
+  if (builtin) return builtin;
+  for (const module of HUB_MODULES) {
+    const template = await safeGetHubJson(env, `modules/${module.id}/templates/${safeTemplateId}.json`);
+    if (template) return template;
+  }
+  return null;
+}
+
+async function safeGetHubJson(env, path) {
+  try {
+    return await getJson(env, hubPath(env, path));
+  } catch (error) {
+    if (error?.code === "missing_wasabi_config") return null;
+    throw error;
+  }
+}
+
+async function safePutHubJson(env, path, value) {
+  try {
+    await putJson(env, hubPath(env, path), value);
+    return true;
+  } catch (error) {
+    if (error?.code === "missing_wasabi_config") return false;
+    throw error;
+  }
+}
+
+function hubPath(env, path) {
+  return appPath(env, `content-hub/${String(path || "").replace(/^\/+/, "")}`);
+}
+
+function buildEcardFlex(template, input = {}) {
+  if (template.template_id === "ecard-v1-video-guide") return buildVideoGuideFlex(input);
+  if (template.template_id === "ecard-v3-catalog") return buildCatalogFlex(input);
+  if (template.template_id === "ecard-v4-video-rich-menu") return buildVideoRichMenuFlex(input);
+  return buildBusinessCardFlex(input);
+}
+
+function buildBusinessCardFlex(input = {}) {
+  const title = cleanText(input.name || input.title || input.company || "電子名片");
+  const role = cleanText([input.job_title || input.position || input.title, input.company].filter(Boolean).join("｜"));
+  const desc = cleanText(input.description || input.desc || input.service || input.bio || input.raw_text || "很高興與你交換名片。");
+  const logoUrl = cleanText(input.logo_url || input.logoUrl || input.avatar_url || input.image_url || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png");
+  const background = normalizeFlexBackground(input.background || input.ecard_config?.background);
+  const socials = Array.isArray(input.socials) ? input.socials : [];
+  const buttons = normalizeFlexButtons(input.buttons || input.ecard_config?.buttons || defaultHubButtons(input));
+  const body = {
+    type: "box",
+    layout: "vertical",
+    paddingAll: "20px",
+    spacing: "md",
+    background,
+    contents: [
+      {
+        type: "box",
+        layout: "horizontal",
+        contents: [
+          { type: "image", url: logoUrl, size: "72px", aspectRatio: "1:1", aspectMode: "cover" },
+          {
+            type: "box",
+            layout: "vertical",
+            margin: "md",
+            contents: [
+              { type: "text", text: title, weight: "bold", size: "xl", wrap: true, color: "#ffffff" },
+              { type: "text", text: role || "Digital Business Card", size: "sm", wrap: true, color: "#f7ead7" }
+            ]
+          }
+        ]
+      },
+      { type: "text", text: desc, size: "sm", wrap: true, color: "#fff7ed", margin: "lg" },
+      {
+        type: "box",
+        layout: "horizontal",
+        spacing: "sm",
+        margin: "md",
+        contents: socials.slice(0, 5).map((item) => ({
+          type: "image",
+          url: cleanText(item.iconUrl || item.icon_url || item.url || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/review_gold_star_28.png"),
+          size: "28px",
+          action: item.link || item.uri ? { type: "uri", uri: cleanText(item.link || item.uri) } : undefined
+        }))
+      }
+    ].filter((item) => item.type !== "box" || item.contents?.length !== 0)
+  };
+  return {
+    type: "bubble",
+    size: "mega",
+    body,
+    footer: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      contents: buttons.slice(0, 4).map((button) => ({
+        type: "button",
+        style: "primary",
+        color: cleanText(button.c || button.color || "#06C755"),
+        action: { type: "uri", label: cleanText(button.l || button.label || "開啟"), uri: cleanText(button.u || button.uri || "https://line.me") }
+      }))
+    }
+  };
+}
+
+function buildVideoGuideFlex(input = {}) {
+  const title = cleanText(input.title || input.name || "影片導購");
+  const desc = cleanText(input.description || input.desc || "點擊觀看完整介紹。");
+  const videoUrl = cleanText(input.video_url || input.videoUrl || "https://example.com/video.mp4");
+  const previewUrl = cleanText(input.preview_url || input.previewUrl || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png");
+  return {
+    type: "bubble",
+    hero: {
+      type: "video",
+      url: videoUrl,
+      previewUrl,
+      altContent: { type: "image", url: previewUrl, size: "full", aspectRatio: "20:13", aspectMode: "cover" },
+      aspectRatio: cleanText(input.aspect_ratio || "20:13")
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        { type: "text", text: title, weight: "bold", size: "xl", wrap: true },
+        { type: "text", text: desc, size: "sm", color: "#666666", wrap: true, margin: "md" }
+      ]
+    },
+    footer: { type: "box", layout: "vertical", contents: normalizeFlexButtons(input.buttons || defaultHubButtons(input)).slice(0, 3).map(toLineButton) }
+  };
+}
+
+function buildCatalogFlex(input = {}) {
+  const items = Array.isArray(input.items) && input.items.length ? input.items : [
+    { title: input.title || "商品項目", price: input.price || "", image_url: input.hero_url || input.heroUrl || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png", uri: input.uri || "https://line.me" }
+  ];
+  return {
+    type: "carousel",
+    contents: items.slice(0, 8).map((item) => ({
+      type: "bubble",
+      hero: { type: "image", url: cleanText(item.image_url || item.img || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png"), size: "full", aspectRatio: "20:13", aspectMode: "cover" },
+      body: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          { type: "text", text: cleanText(item.title || item.desc || "商品"), weight: "bold", wrap: true },
+          { type: "text", text: cleanText(item.price || ""), size: "sm", color: "#777777", margin: "sm" }
+        ]
+      },
+      footer: { type: "box", layout: "vertical", contents: [toLineButton({ label: item.button_text || item.btnText || "查看", uri: item.uri || item.url || "https://line.me", color: input.button_color || "#1d7a5f" })] }
+    }))
+  };
+}
+
+function buildVideoRichMenuFlex(input = {}) {
+  const zones = Array.isArray(input.zones) ? input.zones : [];
+  return {
+    type: "bubble",
+    hero: {
+      type: "video",
+      url: cleanText(input.video_url || input.videoUrl || "https://example.com/video.mp4"),
+      previewUrl: cleanText(input.preview_url || input.previewUrl || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png"),
+      altContent: { type: "image", url: cleanText(input.base_image || input.baseImage || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png"), size: "full", aspectRatio: cleanText(input.base_ratio || "20:13"), aspectMode: "cover" },
+      aspectRatio: cleanText(input.video_ratio || "20:13")
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        { type: "text", text: cleanText(input.header_text || "點擊影片開啟完整影音"), weight: "bold", wrap: true },
+        { type: "text", text: `${zones.length} 個可點擊區塊`, size: "xs", color: "#777777", margin: "sm" }
+      ]
+    }
+  };
+}
+
+function normalizeFlexBackground(value) {
+  if (value?.type === "linearGradient") return value;
+  if (value?.type === "gradient") {
+    return {
+      type: "linearGradient",
+      angle: `${Number(value.angle || 90)}deg`,
+      startColor: cleanText(value.startColor || value.start_color || "#57142b"),
+      endColor: cleanText(value.endColor || value.end_color || "#46250c")
+    };
+  }
+  if (value?.color) return { type: "solid", color: cleanText(value.color) };
+  return { type: "linearGradient", angle: "88deg", startColor: "#57142b", endColor: "#46250c" };
+}
+
+function defaultHubButtons(input = {}) {
+  const phone = normalizePhone(input.phone || input.tel || "");
+  const lineId = cleanText(input.line_id || input.lineId || input.social || "");
+  return [
+    { label: "LINE 聯絡", uri: lineId ? `https://line.me/R/ti/p/${lineId}` : "https://line.me", color: "#06C755" },
+    { label: "電話聯絡", uri: phone ? `tel:${phone}` : "tel:0000000000", color: "#3b82f6" },
+    { label: "地址導航", uri: input.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(input.address)}` : "https://www.google.com/maps", color: "#1e293b" }
+  ];
+}
+
+function normalizeFlexButtons(buttons) {
+  return (Array.isArray(buttons) ? buttons : []).map((button) => ({
+    label: cleanText(button.label || button.l || button.text || "開啟"),
+    uri: cleanText(button.uri || button.u || button.url || "https://line.me"),
+    color: cleanText(button.color || button.c || "#06C755")
+  }));
+}
+
+function toLineButton(button) {
+  return {
+    type: "button",
+    style: "primary",
+    color: cleanText(button.color || button.c || "#06C755"),
+    action: { type: "uri", label: cleanText(button.label || button.l || "開啟"), uri: cleanText(button.uri || button.u || "https://line.me") }
+  };
+}
+
+function normalizeRichMenuConfig(input = {}) {
+  const size = input.size || {};
+  return {
+    name: cleanText(input.name || "MyCard Rich Menu").slice(0, 300),
+    chatBarText: cleanText(input.chatBarText || input.chat_bar_text || "選單").slice(0, 14),
+    selected: Boolean(input.selected ?? true),
+    size: {
+      width: Number(size.width || input.width || 2500),
+      height: Number(size.height || input.height || 1686)
+    },
+    areas: (Array.isArray(input.areas) ? input.areas : []).map(normalizeRichMenuArea)
+  };
+}
+
+function normalizeRichMenuArea(area = {}) {
+  const bounds = area.bounds || area;
+  return {
+    bounds: {
+      x: Math.max(0, Number(bounds.x || 0)),
+      y: Math.max(0, Number(bounds.y || 0)),
+      width: Math.max(1, Number(bounds.width || bounds.w || 1)),
+      height: Math.max(1, Number(bounds.height || bounds.h || 1))
+    },
+    action: normalizeRichMenuAction(area.action || area)
+  };
+}
+
+function normalizeRichMenuAction(action = {}) {
+  const type = cleanText(action.type || "uri");
+  if (type === "message") return { type, text: cleanText(action.text || action.label || "開啟") };
+  if (type === "richmenuswitch") {
+    return {
+      type,
+      richMenuAliasId: cleanText(action.richMenuAliasId || action.rich_menu_alias_id || ""),
+      data: cleanText(action.data || "switch")
+    };
+  }
+  return { type: "uri", uri: cleanText(action.uri || action.url || "https://line.me") };
+}
+
+function validateRichMenuConfig(menu) {
+  const issues = [];
+  if (![2500, 1200, 800].includes(menu.size.width)) issues.push({ field: "size.width", message: "LINE Rich Menu width should normally be 2500, 1200, or 800." });
+  if (menu.size.height < 250 || menu.size.height > 2500) issues.push({ field: "size.height", message: "Rich Menu height is out of LINE's normal range." });
+  if (!menu.chatBarText) issues.push({ field: "chatBarText", message: "chatBarText is required." });
+  menu.areas.forEach((area, index) => {
+    if (area.bounds.x + area.bounds.width > menu.size.width) issues.push({ field: `areas.${index}.bounds`, message: "Area exceeds menu width." });
+    if (area.bounds.y + area.bounds.height > menu.size.height) issues.push({ field: `areas.${index}.bounds`, message: "Area exceeds menu height." });
+    if (area.action.type === "uri" && !/^https?:\/\//i.test(area.action.uri)) issues.push({ field: `areas.${index}.action.uri`, message: "URI action must be an http(s) URL." });
+    if (area.action.type === "richmenuswitch" && !area.action.richMenuAliasId) issues.push({ field: `areas.${index}.action.richMenuAliasId`, message: "richmenuswitch requires richMenuAliasId." });
+  });
+  return issues;
+}
+
+function toLineRichMenuPayload(menu) {
+  return {
+    size: menu.size,
+    selected: menu.selected,
+    name: menu.name,
+    chatBarText: menu.chatBarText,
+    areas: menu.areas
+  };
+}
+
+async function publishLineRichMenu(token, richMenu, imageBase64) {
+  const payload = toLineRichMenuPayload(richMenu);
+  const createRes = await fetch("https://api.line.me/v2/bot/richmenu", {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const created = await createRes.json().catch(async () => ({ message: await createRes.text() }));
+  if (!createRes.ok) return { success: false, code: "line_create_failed", line: created };
+  const bytes = base64ToBytes(imageBase64);
+  const uploadRes = await fetch(`https://api-data.line.me/v2/bot/richmenu/${created.richMenuId}/content`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "image/png" },
+    body: bytes
+  });
+  if (!uploadRes.ok) return { success: false, code: "line_upload_failed", richMenuId: created.richMenuId, line: await uploadRes.text() };
+  const defaultRes = await fetch(`https://api.line.me/v2/bot/user/all/richmenu/${created.richMenuId}`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}` }
+  });
+  if (!defaultRes.ok) return { success: false, code: "line_default_failed", richMenuId: created.richMenuId, line: await defaultRes.text() };
+  return { success: true, code: "published", richMenuId: created.richMenuId };
+}
+
+async function extractVoomAssets(sourceUrl) {
+  const result = { sourceUrl, videoUrl: "", thumbnailUrl: "", images: [], rawMatches: [] };
+  if (/^https?:\/\/voom-obs\.line-scdn\.net\//i.test(sourceUrl)) {
+    result.videoUrl = sourceUrl;
+    result.rawMatches.push(sourceUrl);
+    return result;
+  }
+  const response = await fetch(sourceUrl, {
+    headers: {
+      "user-agent": "Mozilla/5.0 MyCardContentHub/0.1",
+      accept: "text/html,application/xhtml+xml"
+    }
+  });
+  const text = await response.text();
+  const urls = Array.from(text.matchAll(/https?:\\?\/\\?\/[^"'<>\s]+/g))
+    .map((match) => match[0].replace(/\\\//g, "/").replace(/\\u002F/g, "/"))
+    .map((url) => url.replace(/&amp;/g, "&"));
+  const unique = Array.from(new Set(urls));
+  result.rawMatches = unique.filter((url) => /line|obs|scdn|mp4|jpg|png|webp/i.test(url)).slice(0, 50);
+  result.videoUrl = unique.find((url) => /\.mp4(\?|$)/i.test(url) || /voom-obs\.line-scdn\.net/i.test(url)) || "";
+  result.thumbnailUrl = unique.find((url) => /\.(jpg|jpeg|png|webp)(\?|$)/i.test(url) && /scdn|obs|line/i.test(url)) || "";
+  result.images = unique.filter((url) => /\.(jpg|jpeg|png|webp)(\?|$)/i.test(url) && /scdn|obs|line/i.test(url)).slice(0, 12);
+  return result;
+}
+
+function base64ToBytes(value) {
+  const clean = String(value || "").replace(/^data:[^;]+;base64,/, "");
+  const binary = atob(clean);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 async function getJson(env, key) {
