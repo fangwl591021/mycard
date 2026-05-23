@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>名片王內容倉庫</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="hub.css">
+</head>
+<body class="hub-page">
+  <aside class="hub-sidebar">
+    <div class="brand">
+      <div class="brand-mark">倉</div>
+      <div>
+        <strong>名片王</strong>
+        <span>Content Hub</span>
+      </div>
+    </div>
+    <nav class="hub-nav" aria-label="內容倉庫導覽">
+      <button class="hub-nav-item active" data-hub-panel="overview" type="button">總覽</button>
+      <button class="hub-nav-item" data-hub-panel="templates" type="button">模板庫</button>
+      <button class="hub-nav-item" data-hub-panel="ecard" type="button">名片 Flex</button>
+      <button class="hub-nav-item" data-hub-panel="richmenu" type="button">圖文選單</button>
+      <button class="hub-nav-item" data-hub-panel="voom" type="button">VOOM</button>
+      <button class="hub-nav-item" data-hub-panel="sdk" type="button">SDK</button>
+    </nav>
+    <a class="hub-back" href="/">回名片系統</a>
+  </aside>
+
+  <main class="hub-shell">
+    <header class="hub-topbar">
+      <div>
+        <p class="eyebrow">CONTENT HUB</p>
+        <h1>內容倉庫管理頁</h1>
+      </div>
+      <div class="hub-actions">
+        <input id="adminTokenInput" type="password" placeholder="MIGRATION_ADMIN_TOKEN">
+        <button class="ghost-button" id="seedBtn" type="button">Seed 模板</button>
+        <button class="primary-button" id="refreshBtn" type="button">重新整理</button>
+      </div>
+    </header>
+
+    <section class="hub-panel active" id="panel-overview">
+      <div class="hub-metrics">
+        <article class="metric"><span>模組</span><strong id="moduleCount">0</strong><small>共用能力</small></article>
+        <article class="metric"><span>電子名片模板</span><strong id="ecardCount">0</strong><small>V1-V4</small></article>
+        <article class="metric"><span>圖文選單模板</span><strong id="richMenuCount">0</strong><small>Rich Menu</small></article>
+        <article class="metric"><span>儲存</span><strong>Wasabi</strong><small id="storagePrefix">content-hub</small></article>
+      </div>
+      <section class="hub-card">
+        <div class="panel-head">
+          <h2>模組狀態</h2>
+          <span class="storage-badge">No KV · No D1 · No R2</span>
+        </div>
+        <div class="module-grid" id="moduleGrid"></div>
+      </section>
+    </section>
+
+    <section class="hub-panel" id="panel-templates">
+      <div class="section-head">
+        <h2>模板庫</h2>
+        <div class="hub-filters">
+          <button class="segment active" data-template-filter="ecard" type="button">電子名片</button>
+          <button class="segment" data-template-filter="rich-menu" type="button">圖文選單</button>
+          <button class="segment" data-template-filter="" type="button">全部</button>
+        </div>
+      </div>
+      <div class="template-list" id="templateList"></div>
+    </section>
+
+    <section class="hub-panel" id="panel-ecard">
+      <div class="hub-two-col">
+        <section class="hub-card">
+          <div class="panel-head">
+            <h2>名片 Flex 測試</h2>
+            <button class="ghost-button" id="generateFlexBtn" type="button">產生 Flex</button>
+          </div>
+          <label>模板
+            <select id="ecardTemplateSelect"></select>
+          </label>
+          <label>輸入資料 JSON
+            <textarea id="ecardDataInput" rows="16"></textarea>
+          </label>
+        </section>
+        <section class="hub-card output-card">
+          <div class="panel-head">
+            <h2>Flex JSON</h2>
+            <button class="ghost-button" id="copyFlexBtn" type="button">複製</button>
+          </div>
+          <pre id="flexOutput">{}</pre>
+        </section>
+      </div>
+    </section>
+
+    <section class="hub-panel" id="panel-richmenu">
+      <div class="hub-two-col">
+        <section class="hub-card">
+          <div class="panel-head">
+            <h2>圖文選單驗證</h2>
+            <button class="ghost-button" id="validateRichMenuBtn" type="button">驗證</button>
+          </div>
+          <label>Rich Menu JSON
+            <textarea id="richMenuInput" rows="18"></textarea>
+          </label>
+        </section>
+        <section class="hub-card output-card">
+          <div class="panel-head">
+            <h2>驗證結果</h2>
+            <span class="storage-badge" id="richMenuBadge">待驗證</span>
+          </div>
+          <pre id="richMenuOutput">{}</pre>
+        </section>
+      </div>
+    </section>
+
+    <section class="hub-panel" id="panel-voom">
+      <section class="hub-card">
+        <div class="panel-head">
+          <h2>LINE VOOM 擷取測試</h2>
+          <button class="ghost-button" id="extractVoomBtn" type="button">擷取</button>
+        </div>
+        <label>VOOM 貼文網址
+          <input id="voomUrlInput" type="url" placeholder="https://linevoom.line.me/post/...">
+        </label>
+        <pre id="voomOutput">{}</pre>
+      </section>
+    </section>
+
+    <section class="hub-panel" id="panel-sdk">
+      <section class="hub-card">
+        <div class="panel-head">
+          <h2>SDK 使用方式</h2>
+          <a class="ghost-button link-button" href="/sdk/mycard-hub.js" target="_blank" rel="noreferrer">查看 SDK</a>
+        </div>
+        <pre><code>import { createMyCardHub } from "https://myvard.fangwl591021.workers.dev/sdk/mycard-hub.js";
+
+const hub = createMyCardHub({
+  apiBase: "https://myvard.fangwl591021.workers.dev"
+});
+
+const templates = await hub.ecard.listTemplates();
+const flex = await hub.ecard.generateFlex("ecard-v2-business-card", {
+  name: "方萬隆",
+  title: "創意總監",
+  company: "名片王"
+});</code></pre>
+      </section>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="hub-admin.js"></script>
+</body>
+</html>
