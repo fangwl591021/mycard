@@ -113,6 +113,7 @@ function renderAll(storage) {
   renderModules();
   renderTemplates();
   renderTemplateSelect();
+  loadRichMenuSample();
 }
 
 function renderModules() {
@@ -150,6 +151,21 @@ function renderTemplateSelect() {
   if (state.ecardTemplates.some((item) => item.template_id === "ecard-v2-business-card")) {
     els.ecardTemplateSelect.value = "ecard-v2-business-card";
   }
+  loadSelectedTemplateSample();
+}
+
+function loadRichMenuSample() {
+  const template = state.richMenuTemplates.find((item) => item.template_id === "rich-menu-basic-2500") || state.richMenuTemplates[0];
+  const sample = template?.sample_data || defaultRichMenu;
+  els.richMenuInput.value = pretty(sample);
+  renderRichMenuPreview(sample, []);
+}
+
+function loadSelectedTemplateSample() {
+  const template = state.ecardTemplates.find((item) => item.template_id === els.ecardTemplateSelect.value);
+  const sample = template?.sample_data || defaultCardData;
+  els.ecardDataInput.value = pretty(sample);
+  renderEcardPreview(sample, {}, template?.template_id || "ecard-v2-business-card");
 }
 
 async function generateFlex() {
@@ -411,6 +427,7 @@ document.querySelectorAll("[data-template-filter]").forEach((button) => {
 document.querySelector("#refreshBtn").addEventListener("click", loadHub);
 document.querySelector("#seedBtn").addEventListener("click", seedTemplates);
 document.querySelector("#generateFlexBtn").addEventListener("click", generateFlex);
+els.ecardTemplateSelect.addEventListener("change", loadSelectedTemplateSample);
 document.querySelector("#validateRichMenuBtn").addEventListener("click", validateRichMenu);
 document.querySelector("#extractVoomBtn").addEventListener("click", extractVoom);
 document.querySelector("#copyFlexBtn").addEventListener("click", copyFlex);

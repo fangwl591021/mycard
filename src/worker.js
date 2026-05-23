@@ -6,81 +6,166 @@ const CONTENT_HUB_VERSION = "0.1.0";
 const HUB_MODULES = [
   {
     id: "rich-menu",
-    name: "圖文選單工具",
+    name: "Rich Menu Tool",
     type: "tool",
-    status: "planned",
-    description: "共用 LINE Rich Menu schema、座標區塊驗證、Flex/LINE action 正規化與發布流程。"
+    status: "active",
+    description: "Reusable LINE Rich Menu schema, area validation, action normalization, and publish flow."
   },
   {
     id: "voom",
-    name: "LINE VOOM 影片擷取器",
+    name: "LINE VOOM Extractor",
     type: "tool",
-    status: "planned",
-    description: "集中處理 LINE VOOM URL 解析、影片/縮圖/圖片擷取與 Wasabi JSON 工作紀錄。"
+    status: "active",
+    description: "Extract VOOM media URLs and preserve real media dimensions for previews and Flex generation."
   },
   {
     id: "ecard",
-    name: "電子名片模板庫",
+    name: "E-card Template Library",
     type: "template-library",
     status: "active",
-    description: "提供電子名片模板規格、欄位正規化與 Flex JSON 產生器。"
+    description: "Reusable Flex templates and sample data for digital business cards."
   }
 ];
+
+const BUILTIN_TEMPLATE_SAMPLE_DATA = {
+  "ecard-v1-video-guide": {
+    title: "Video guide sample",
+    description: "A video-first Flex card with social icons and three CTA buttons.",
+    video_url: "https://obs.line-scdn.net/h9B3GDtq9emxVUmlibAR9FXJqcUNxVSB-WgQhQ3s9MF5IeHN9YC5OU1BhRFVzUVE5SQdJA3hcU11Ca1U4YANWUkNhUBtIRVZ5WRNZV3tbORs/mp4",
+    preview_url: "https://upload.cc/i1/2022/07/29/ygc1lF.png",
+    aspect_ratio: "1040:748",
+    bubble_size: "giga",
+    background_color: "#FFFFFF",
+    socials: [
+      { type: "TEL", uri: "tel:0912345678" },
+      { type: "FB", uri: "https://www.facebook.com" },
+      { type: "IG", uri: "https://www.instagram.com" },
+      { type: "YT", uri: "https://www.youtube.com" }
+    ],
+    buttons: [
+      { label: "Join LINE", uri: "https://line.me", color: "#111111" },
+      { label: "Booking", uri: "https://line.me", color: "#111111" },
+      { label: "More info", uri: "https://line.me", color: "#111111" }
+    ]
+  },
+  "ecard-v2-business-card": {
+    name: "Tony Fang",
+    title: "Creative Director",
+    company: "MyCard",
+    description: "Standard digital business card sample with avatar, social icons, contact buttons, and a gradient background.",
+    logo_url: "https://aiwe.cc/wp-content/uploads/2026/02/6e1716a9965b002e6c25ab6f9d383e60.jpg",
+    phone: "0912345678",
+    line_id: "@mycard",
+    background: { type: "gradient", angle: 88, startColor: "#57142b", endColor: "#46250c" },
+    socials: [
+      { type: "YT", iconUrl: "https://aiwe.cc/wp-content/uploads/2026/02/87e6f8054bd3672f2885e38bddb112e2.png", uri: "https://youtube.com" },
+      { type: "FB", iconUrl: "https://aiwe.cc/wp-content/uploads/2026/02/3986d1fd62384c8cdaa0e7c82f2740d1.png", uri: "https://facebook.com" },
+      { type: "LINE", iconUrl: "https://aiwe.cc/wp-content/uploads/2026/02/b75a5831fd553c7130aeafbb9783cf79.png", uri: "https://line.me" },
+      { type: "TEL", iconUrl: "https://aiwe.cc/wp-content/uploads/2026/02/7254567388850a6b4d77b75208ebd4b8.png", uri: "tel:0912345678" }
+    ],
+    buttons: [
+      { label: "New Button", uri: "https://line.me", color: "#ffffff" }
+    ]
+  },
+  "ecard-v3-catalog": {
+    title: "Product catalog sample",
+    hero_url: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png",
+    button_color: "#0000FF",
+    button_text_color: "#FFFFFF",
+    bubble_size: "mega",
+    items: [
+      { title: "Sample product A", price: "390", image_url: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png", button_text: "Buy", uri: "https://line.me" },
+      { title: "Sample product B", price: "590", image_url: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_2_restaurant.png", button_text: "Buy", uri: "https://line.me" }
+    ],
+    socials: [
+      { type: "LINE", uri: "https://line.me" },
+      { type: "FB", uri: "https://facebook.com" },
+      { type: "IG", uri: "https://instagram.com" }
+    ]
+  },
+  "ecard-v4-video-rich-menu": {
+    header_text: "Click the video to open full media",
+    header_color: "#eb5a09",
+    video_url: "https://example.com/video.mp4",
+    preview_url: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png",
+    video_ratio: "800:450",
+    base_image: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png",
+    base_ratio: "2500:1686",
+    design_width: 2500,
+    zones: [
+      { label: "Official site", uri: "https://line.me", x: 120, y: 160, w: 620, h: 280 },
+      { label: "Contact", uri: "https://line.me", x: 900, y: 780, w: 700, h: 360 }
+    ]
+  },
+  "rich-menu-basic-2500": {
+    name: "MyCard Rich Menu",
+    chatBarText: "Menu",
+    selected: true,
+    size: { width: 2500, height: 1686 },
+    areas: [
+      { bounds: { x: 0, y: 0, width: 1250, height: 843 }, action: { type: "uri", uri: "https://myvard.fangwl591021.workers.dev/hub.html" } },
+      { bounds: { x: 1250, y: 0, width: 1250, height: 843 }, action: { type: "message", text: "mycard" } },
+      { bounds: { x: 0, y: 843, width: 833, height: 843 }, action: { type: "uri", uri: "https://line.me" } },
+      { bounds: { x: 833, y: 843, width: 834, height: 843 }, action: { type: "message", text: "catalog" } },
+      { bounds: { x: 1667, y: 843, width: 833, height: 843 }, action: { type: "richmenuswitch", richMenuAliasId: "MENU_SAMPLE", data: "switch-menu" } }
+    ]
+  }
+};
 
 const BUILTIN_TEMPLATES = [
   {
     template_id: "ecard-v1-video-guide",
     module: "ecard",
     kind: "flex",
-    name: "影片導購名片 V1",
+    name: "Video Guide V1",
     source: "mylittlesys",
     version: "1.0.0",
     status: "builtin",
-    description: "參考 mylittlesys 的 V1 影片導購 Flex 結構，保留 video、preview、標題、說明與 CTA 欄位。",
+    description: "Video-first Flex template with preview image, social icons, and CTA buttons.",
     fields: ["title", "description", "video_url", "preview_url", "buttons", "socials"]
   },
   {
     template_id: "ecard-v2-business-card",
     module: "ecard",
     kind: "flex",
-    name: "個人名片 V2",
+    name: "Business Card V2",
     source: "mylittlesys",
     version: "1.0.0",
     status: "builtin",
-    description: "標準數位名片結構，含大頭貼、背景色/漸層、社群圖示、聯絡按鈕與角落分享徽章。",
+    description: "Digital business card with avatar, gradient background, social icons, contact buttons, and share badge.",
     fields: ["name", "title", "company", "description", "logo_url", "background", "socials", "buttons"]
   },
   {
     template_id: "ecard-v3-catalog",
     module: "ecard",
     kind: "flex",
-    name: "商品目錄 V3",
+    name: "Product Catalog V3",
     source: "mylittlesys",
     version: "1.0.0",
     status: "builtin",
-    description: "商品列表型 Flex 結構，保留主圖、商品項目、價格、按鈕與社群入口。",
+    description: "Product list template with hero image, catalog items, prices, buttons, and social links.",
     fields: ["title", "hero_url", "items", "socials", "button_color"]
   },
   {
     template_id: "ecard-v4-video-rich-menu",
     module: "ecard",
     kind: "flex",
-    name: "影音圖文選單 V4",
+    name: "Video Rich Menu V4",
     source: "mylittlesys",
     version: "1.0.0",
     status: "builtin",
-    description: "影音圖文選單模板，保留影片、底圖、設計寬度與可點擊區塊座標。",
+    description: "Video and image-map style template with base image, design width, and clickable zones.",
     fields: ["header_text", "video_url", "preview_url", "base_image", "zones"]
   },
   {
     template_id: "rich-menu-basic-2500",
     module: "rich-menu",
     kind: "rich-menu",
-    name: "標準圖文選單 2500",
+    name: "Basic Rich Menu 2500",
     source: "mylittlesys",
     version: "1.0.0",
     status: "builtin",
-    description: "LINE Rich Menu 基本資料格式，支援 chatBarText、size、areas 與 URI/message/richmenuswitch actions。",
+    description: "LINE Rich Menu template with size, chatBarText, areas, and URI/message/richmenuswitch actions.",
     fields: ["size", "chatBarText", "areas"]
   }
 ];
@@ -106,13 +191,13 @@ export default {
 
       if (url.pathname === "/api/config") {
         return json({
-          app: "名片王",
+          app: "MyCard",
           liff_id: env.LIFF_ID || "1660923784-EcoH8aMs",
           liff_url: env.LIFF_URL || "https://liff.line.me/1660923784-EcoH8aMs",
           plans: ["free", "PRO", "enterprise"],
           roles: ["admin", "rent_owner", "rent_admin", "rent_member", "user"],
           card_upload_reward_points: CARD_REWARD_POINTS,
-          storage_note: "資料以 Wasabi JSON / 圖片保存；Worker 不使用 KV、D1、R2。"
+          storage_note: "Data is stored in Wasabi JSON/Object Storage. Worker does not use KV, D1, or R2."
         });
       }
 
@@ -326,7 +411,7 @@ async function handleHubSeed(request, env) {
   requireHubAdmin(request, env, body);
   const saved = [];
   for (const template of BUILTIN_TEMPLATES) {
-    const stored = { ...template, status: "seeded", seeded_from: "builtin", seeded_at: new Date().toISOString() };
+    const stored = { ...withTemplateSampleData(template), status: "seeded", seeded_from: "builtin", seeded_at: new Date().toISOString() };
     await putHubTemplate(env, stored);
     saved.push(stored.template_id);
   }
@@ -341,14 +426,16 @@ async function handleHubEcardFlex(request, env) {
   if (template.module !== "ecard") throw new HttpError(400, "not_ecard_template", "Template is not an ecard template");
 
   const input = body.data && typeof body.data === "object" ? body.data : body;
-  const flex = buildEcardFlex(template, input);
+  const sample = template.sample_data && typeof template.sample_data === "object" ? template.sample_data : {};
+  const renderInput = { ...sample, ...input };
+  const flex = buildEcardFlex(template, renderInput);
   return hubJson({
     template_id: template.template_id,
     template_name: template.name,
     flex,
     preview: {
-      title: input.name || input.title || input.company || template.name,
-      altText: `${input.name || input.company || "電子名片"}`
+      title: renderInput.name || renderInput.title || renderInput.company || template.name,
+      altText: `${renderInput.name || renderInput.company || "E-card"}`
     }
   });
 }
@@ -454,7 +541,7 @@ async function handleHubVoomJob(_request, env, jobId) {
 
 async function handleLineAuth(request, env) {
   const body = await request.json().catch(() => ({}));
-  if (!body.idToken) throw new HttpError(400, "missing_id_token", "缺少 LIFF idToken");
+  if (!body.idToken) throw new HttpError(400, "missing_id_token", "Missing LIFF idToken");
 
   const user = await verifyLineIdToken(body.idToken, env);
   const referralCode = sanitizeRefCode(body.refCode || readCookie(request, "mycard_ref") || "");
@@ -1003,7 +1090,7 @@ function safeJsonValue(value) {
 function handleReferralLanding(request, env) {
   const url = new URL(request.url);
   const refCode = sanitizeRefCode(url.pathname.replace(/^\/r\//, ""));
-  if (!refCode) throw new HttpError(404, "referral_not_found", "推廣連結不存在");
+  if (!refCode) throw new HttpError(404, "referral_not_found", "Referral link not found");
   const target = env.LIFF_URL || "https://liff.line.me/1660923784-EcoH8aMs";
   return new Response(null, {
     status: 302,
@@ -1093,7 +1180,7 @@ async function handleDeleteCard(request, env, cardId) {
   const safeCardId = sanitizeId(cardId);
   const cardKey = userPath(user.user_id, `cards/${safeCardId}.json`);
   const card = await getJson(env, cardKey);
-  if (!card) throw new HttpError(404, "card_not_found", "找不到名片");
+  if (!card) throw new HttpError(404, "card_not_found", "Card not found");
   if (card.public_slug) {
     await deleteObject(env, publicCardPath(card.public_slug));
   }
@@ -1108,7 +1195,7 @@ async function handlePublishCard(request, env, cardId) {
   const safeCardId = sanitizeId(cardId);
   const cardKey = userPath(user.user_id, `cards/${safeCardId}.json`);
   const card = await getJson(env, cardKey);
-  if (!card) throw new HttpError(404, "card_not_found", "找不到名片");
+  if (!card) throw new HttpError(404, "card_not_found", "Card not found");
   const publish = body.publish !== false;
   const oldSlug = card.public_slug;
   if (!publish) {
@@ -1134,9 +1221,9 @@ async function handlePublishCard(request, env, cardId) {
 async function handlePublicCard(request, env) {
   const url = new URL(request.url);
   const slug = sanitizeSlug(url.pathname.replace(/^\/card\//, ""));
-  if (!slug) throw new HttpError(404, "public_card_not_found", "公開名片不存在");
+  if (!slug) throw new HttpError(404, "public_card_not_found", "Public card not found");
   const card = await getJson(env, publicCardPath(slug));
-  if (!card) throw new HttpError(404, "public_card_not_found", "公開名片不存在");
+  if (!card) throw new HttpError(404, "public_card_not_found", "Public card not found");
   return new Response(renderPublicCardHtml(card), {
     headers: {
       "content-type": "text/html; charset=utf-8",
@@ -1162,11 +1249,11 @@ async function handleCreateRentDraft(request, env) {
   const type = body.type === "organization" ? "organization" : "personal";
   const plan = body.plan === "enterprise" ? "enterprise" : "PRO";
   if (plan === "enterprise" && type !== "organization") {
-    throw new HttpError(400, "invalid_rent_type", "enterprise 必須建立 organization rent");
+    throw new HttpError(400, "invalid_rent_type", "Enterprise plan requires organization rent");
   }
   const now = new Date().toISOString();
   const rentId = `rent_${Date.now()}_${randomString(8)}`;
-  const displayName = cleanText(body.display_name) || (type === "personal" ? "個人 PRO 空間" : "企業團隊空間");
+  const displayName = cleanText(body.display_name) || (type === "personal" ? "Personal PRO Space" : "Enterprise Team Space");
   const rent = {
     rent_id: rentId,
     type,
@@ -1197,9 +1284,9 @@ async function handleCardScan(request, env) {
   const user = await requireUser(request, env);
   const form = await request.formData();
   const image = form.get("image");
-  if (!(image instanceof File)) throw new HttpError(400, "missing_image", "請上傳名片圖片");
-  if (!image.type.startsWith("image/")) throw new HttpError(400, "invalid_file_type", "只接受圖片檔");
-  if (image.size > MAX_IMAGE_BYTES) throw new HttpError(400, "file_too_large", "圖片大小不可超過 8MB");
+  if (!(image instanceof File)) throw new HttpError(400, "missing_image", "Please upload a business card image");
+  if (!image.type.startsWith("image/")) throw new HttpError(400, "invalid_file_type", "Only image files are accepted");
+  if (image.size > MAX_IMAGE_BYTES) throw new HttpError(400, "file_too_large", "Image size must be under 8MB");
 
   const now = new Date();
   const ids = createIds();
@@ -1213,7 +1300,7 @@ async function handleCardScan(request, env) {
   const parsed = await recognizeBusinessCard(env, imageBytes, image.type);
   const fingerprint = createCardFingerprint(parsed);
   if (!fingerprint) {
-    throw new HttpError(422, "ocr_not_enough_fields", "OCR 欄位不足，請手動補齊姓名、電話或 Email");
+    throw new HttpError(422, "ocr_not_enough_fields", "OCR did not return enough fields. Please fill name, phone, or email manually.");
   }
 
   const indexKey = userPath(user.user_id, "indexes/card-fingerprints.json");
@@ -1223,7 +1310,7 @@ async function handleCardScan(request, env) {
     return json({
       ok: false,
       code: "duplicate_card",
-      message: "這張名片已存在，未建立新資料，也未贈送點數。",
+      message: "This card already exists. No new record or reward points were created.",
       existing_card_id: duplicate.card_id,
       parsed_json: normalizeParsedCard(parsed)
     }, { status: 409 });
@@ -1354,13 +1441,13 @@ async function upsertUserRentIndex(env, userId, rent) {
 async function requireUser(request, env) {
   const authorization = request.headers.get("authorization") || "";
   const token = authorization.toLowerCase().startsWith("bearer ") ? authorization.slice(7).trim() : "";
-  if (!token) throw new HttpError(401, "unauthorized", "請先透過 LIFF 登入");
+  if (!token) throw new HttpError(401, "unauthorized", "Please login with LIFF");
   return verifyLineIdToken(token, env);
 }
 
 async function verifyLineIdToken(idToken, env) {
   const clientId = env.LINE_LOGIN_CHANNEL_ID || (env.LIFF_ID || "").split("-")[0];
-  if (!clientId) throw new HttpError(500, "missing_line_channel_id", "Worker 缺少 LINE_LOGIN_CHANNEL_ID 或 LIFF_ID");
+  if (!clientId) throw new HttpError(500, "missing_line_channel_id", "Worker is missing LINE_LOGIN_CHANNEL_ID or LIFF_ID");
 
   const response = await fetch("https://api.line.me/oauth2/v2.1/verify", {
     method: "POST",
@@ -1369,19 +1456,19 @@ async function verifyLineIdToken(idToken, env) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new HttpError(401, "line_token_invalid", payload.error_description || "LINE idToken 驗證失敗");
+    throw new HttpError(401, "line_token_invalid", payload.error_description || "LINE idToken verification failed");
   }
 
   return {
     user_id: `line_${sanitizeId(payload.sub)}`,
     line_user_id: payload.sub,
-    name: payload.name || "LINE 使用者",
+    name: payload.name || "LINE User",
     picture_url: payload.picture || ""
   };
 }
 
 async function recognizeBusinessCard(env, bytes, contentType) {
-  if (!env.OPENAI_API_KEY) throw new HttpError(500, "missing_openai_api_key", "Worker 缺少 OPENAI_API_KEY");
+  if (!env.OPENAI_API_KEY) throw new HttpError(500, "missing_openai_api_key", "Worker is missing OPENAI_API_KEY");
 
   const imageBase64 = arrayBufferToBase64(bytes);
   const response = await fetch("https://api.openai.com/v1/responses", {
@@ -1397,7 +1484,7 @@ async function recognizeBusinessCard(env, bytes, contentType) {
         content: [
           {
             type: "input_text",
-            text: "請辨識這張紙本名片，僅回傳 JSON。欄位沿用舊系統名片規格，包含 name,english_name,title,department,company,tax_id,phone,company_phone,extension,fax,email,line_id,website,address,service,tags,notes,raw_text。無法辨識的欄位用空字串。"
+            text: "Recognize this paper business card and return JSON only. Use the legacy card schema fields: name, english_name, title, department, company, tax_id, phone, company_phone, extension, fax, email, line_id, website, address, service, tags, notes, raw_text. Use an empty string for unknown fields."
           },
           {
             type: "input_image",
@@ -1441,10 +1528,10 @@ async function recognizeBusinessCard(env, bytes, contentType) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new HttpError(502, "openai_ocr_failed", data.error?.message || "GPT OCR 呼叫失敗");
+    throw new HttpError(502, "openai_ocr_failed", data.error?.message || "GPT OCR request failed");
   }
   const outputText = data.output_text || data.output?.flatMap((item) => item.content || []).find((item) => item.text)?.text;
-  if (!outputText) throw new HttpError(502, "openai_empty_output", "GPT OCR 沒有回傳可解析內容");
+  if (!outputText) throw new HttpError(502, "openai_empty_output", "GPT OCR returned no parseable content");
   return JSON.parse(outputText);
 }
 
@@ -1698,7 +1785,9 @@ function sanitizeHubType(value) {
 }
 
 async function loadHubTemplates(env, type = "") {
-  const builtin = BUILTIN_TEMPLATES.filter((item) => !type || item.module === type || item.kind === type);
+  const builtin = BUILTIN_TEMPLATES
+    .filter((item) => !type || item.module === type || item.kind === type)
+    .map(withTemplateSampleData);
   const index = await safeGetHubJson(env, type ? `modules/${type}/indexes/templates.json` : "indexes/templates.json");
   const ids = Array.isArray(index?.templates) ? index.templates : [];
   const stored = [];
@@ -1716,12 +1805,19 @@ async function loadHubTemplates(env, type = "") {
 async function loadHubTemplate(env, templateId) {
   const safeTemplateId = sanitizeId(templateId);
   const builtin = BUILTIN_TEMPLATES.find((item) => item.template_id === safeTemplateId);
-  if (builtin) return builtin;
+  if (builtin) return withTemplateSampleData(builtin);
   for (const module of HUB_MODULES) {
     const template = await safeGetHubJson(env, `modules/${module.id}/templates/${safeTemplateId}.json`);
     if (template) return template;
   }
   return null;
+}
+
+function withTemplateSampleData(template) {
+  return {
+    ...template,
+    sample_data: template.sample_data || structuredClone(BUILTIN_TEMPLATE_SAMPLE_DATA[template.template_id] || {})
+  };
 }
 
 async function safeGetHubJson(env, path) {
@@ -1836,9 +1932,9 @@ function buildEcardFlex(template, input = {}) {
 }
 
 function buildBusinessCardFlex(input = {}) {
-  const title = cleanText(input.name || input.title || input.company || "電子名片");
-  const role = cleanText([input.job_title || input.position || input.title, input.company].filter(Boolean).join("｜"));
-  const desc = cleanText(input.description || input.desc || input.service || input.bio || input.raw_text || "很高興與你交換名片。");
+  const title = cleanText(input.name || input.title || input.company || "Digital Business Card");
+  const role = cleanText([input.job_title || input.position || input.title, input.company].filter(Boolean).join(" | "));
+  const desc = cleanText(input.description || input.desc || input.service || input.bio || input.raw_text || "Nice to exchange business cards with you.");
   const logoUrl = cleanText(input.logo_url || input.logoUrl || input.avatar_url || input.image_url || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png");
   const background = normalizeFlexBackground(input.background || input.ecard_config?.background);
   const socials = Array.isArray(input.socials) ? input.socials : [];
@@ -1893,15 +1989,15 @@ function buildBusinessCardFlex(input = {}) {
         type: "button",
         style: "primary",
         color: cleanText(button.c || button.color || "#06C755"),
-        action: { type: "uri", label: cleanText(button.l || button.label || "開啟"), uri: cleanText(button.u || button.uri || "https://line.me") }
+        action: { type: "uri", label: cleanText(button.l || button.label || "Open"), uri: cleanText(button.u || button.uri || "https://line.me") }
       }))
     }
   };
 }
 
 function buildVideoGuideFlex(input = {}) {
-  const title = cleanText(input.title || input.name || "影片導購");
-  const desc = cleanText(input.description || input.desc || "點擊觀看完整介紹。");
+  const title = cleanText(input.title || input.name || "Video Guide");
+  const desc = cleanText(input.description || input.desc || "Tap to watch the full introduction.");
   const videoUrl = cleanText(input.video_url || input.videoUrl || "https://example.com/video.mp4");
   const previewUrl = cleanText(input.preview_url || input.previewUrl || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png");
   return {
@@ -1927,7 +2023,7 @@ function buildVideoGuideFlex(input = {}) {
 
 function buildCatalogFlex(input = {}) {
   const items = Array.isArray(input.items) && input.items.length ? input.items : [
-    { title: input.title || "商品項目", price: input.price || "", image_url: input.hero_url || input.heroUrl || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png", uri: input.uri || "https://line.me" }
+    { title: input.title || "Catalog item", price: input.price || "", image_url: input.hero_url || input.heroUrl || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png", uri: input.uri || "https://line.me" }
   ];
   return {
     type: "carousel",
@@ -1938,11 +2034,11 @@ function buildCatalogFlex(input = {}) {
         type: "box",
         layout: "vertical",
         contents: [
-          { type: "text", text: cleanText(item.title || item.desc || "商品"), weight: "bold", wrap: true },
+          { type: "text", text: cleanText(item.title || item.desc || "Product"), weight: "bold", wrap: true },
           { type: "text", text: cleanText(item.price || ""), size: "sm", color: "#777777", margin: "sm" }
         ]
       },
-      footer: { type: "box", layout: "vertical", contents: [toLineButton({ label: item.button_text || item.btnText || "查看", uri: item.uri || item.url || "https://line.me", color: input.button_color || "#1d7a5f" })] }
+      footer: { type: "box", layout: "vertical", contents: [toLineButton({ label: item.button_text || item.btnText || "View", uri: item.uri || item.url || "https://line.me", color: input.button_color || "#1d7a5f" })] }
     }))
   };
 }
@@ -1962,8 +2058,8 @@ function buildVideoRichMenuFlex(input = {}) {
       type: "box",
       layout: "vertical",
       contents: [
-        { type: "text", text: cleanText(input.header_text || "點擊影片開啟完整影音"), weight: "bold", wrap: true },
-        { type: "text", text: `${zones.length} 個可點擊區塊`, size: "xs", color: "#777777", margin: "sm" }
+        { type: "text", text: cleanText(input.header_text || "Tap the video to open full media"), weight: "bold", wrap: true },
+        { type: "text", text: `${zones.length} clickable zones`, size: "xs", color: "#777777", margin: "sm" }
       ]
     }
   };
@@ -1987,15 +2083,15 @@ function defaultHubButtons(input = {}) {
   const phone = normalizePhone(input.phone || input.tel || "");
   const lineId = cleanText(input.line_id || input.lineId || input.social || "");
   return [
-    { label: "LINE 聯絡", uri: lineId ? `https://line.me/R/ti/p/${lineId}` : "https://line.me", color: "#06C755" },
-    { label: "電話聯絡", uri: phone ? `tel:${phone}` : "tel:0000000000", color: "#3b82f6" },
-    { label: "地址導航", uri: input.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(input.address)}` : "https://www.google.com/maps", color: "#1e293b" }
+    { label: "LINE", uri: lineId ? `https://line.me/R/ti/p/${lineId}` : "https://line.me", color: "#06C755" },
+    { label: "Phone", uri: phone ? `tel:${phone}` : "tel:0000000000", color: "#3b82f6" },
+    { label: "Map", uri: input.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(input.address)}` : "https://www.google.com/maps", color: "#1e293b" }
   ];
 }
 
 function normalizeFlexButtons(buttons) {
   return (Array.isArray(buttons) ? buttons : []).map((button) => ({
-    label: cleanText(button.label || button.l || button.text || "開啟"),
+    label: cleanText(button.label || button.l || button.text || "Open"),
     uri: cleanText(button.uri || button.u || button.url || "https://line.me"),
     color: cleanText(button.color || button.c || "#06C755")
   }));
@@ -2006,7 +2102,7 @@ function toLineButton(button) {
     type: "button",
     style: "primary",
     color: cleanText(button.color || button.c || "#06C755"),
-    action: { type: "uri", label: cleanText(button.label || button.l || "開啟"), uri: cleanText(button.uri || button.u || "https://line.me") }
+    action: { type: "uri", label: cleanText(button.label || button.l || "Open"), uri: cleanText(button.uri || button.u || "https://line.me") }
   };
 }
 
@@ -2014,7 +2110,7 @@ function normalizeRichMenuConfig(input = {}) {
   const size = input.size || {};
   return {
     name: cleanText(input.name || "MyCard Rich Menu").slice(0, 300),
-    chatBarText: cleanText(input.chatBarText || input.chat_bar_text || "選單").slice(0, 14),
+    chatBarText: cleanText(input.chatBarText || input.chat_bar_text || "Menu").slice(0, 14),
     selected: Boolean(input.selected ?? true),
     size: {
       width: Number(size.width || input.width || 2500),
@@ -2039,7 +2135,7 @@ function normalizeRichMenuArea(area = {}) {
 
 function normalizeRichMenuAction(action = {}) {
   const type = cleanText(action.type || "uri");
-  if (type === "message") return { type, text: cleanText(action.text || action.label || "開啟") };
+  if (type === "message") return { type, text: cleanText(action.text || action.label || "Open") };
   if (type === "richmenuswitch") {
     return {
       type,
@@ -2250,7 +2346,7 @@ function decodeXml(value) {
 function wasabiConfig(env) {
   const required = ["WASABI_BUCKET", "WASABI_REGION", "WASABI_ENDPOINT", "WASABI_ACCESS_KEY_ID", "WASABI_SECRET_ACCESS_KEY"];
   for (const name of required) {
-    if (!env[name]) throw new HttpError(500, "missing_wasabi_config", `Worker 缺少 ${name}`);
+    if (!env[name]) throw new HttpError(500, "missing_wasabi_config", `Worker is missing ${name}`);
   }
   return {
     bucket: env.WASABI_BUCKET,
@@ -2443,3 +2539,4 @@ class HttpError {
     this.message = message;
   }
 }
+
