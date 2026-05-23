@@ -83,6 +83,33 @@ const defaultRichMenu = {
   ]
 };
 
+const legacyTemplateCards = {
+  "ecard-v1-video-guide": {
+    icon: "video",
+    title: "影片導購 (V1)",
+    desc: "適合放置 YOUTUBE 或<br>影片內容引導與按鈕",
+    cta: "立即建立 →"
+  },
+  "ecard-v2-business-card": {
+    icon: "person",
+    title: "個人名片 (V2)",
+    desc: "標準數位名片結構<br>含社群圖示與聯絡按鈕",
+    cta: "立即建立 →"
+  },
+  "ecard-v3-catalog": {
+    icon: "sliders",
+    title: "商品目錄 (V3)",
+    desc: "列表式商品陳列規格<br>支援多項購買連結與價格",
+    cta: "立即建立 →"
+  },
+  "ecard-v4-video-rich-menu": {
+    icon: "layout",
+    title: "影音圖文選單 (V4)",
+    desc: "上方影片，下方圖片<br>用座標自由放置透明按鈕",
+    cta: "建立 V4"
+  }
+};
+
 function showToast(message) {
   els.toast.textContent = message;
   els.toast.classList.add("show");
@@ -143,6 +170,27 @@ function currentTemplates() {
 
 function renderTemplates() {
   const templates = currentTemplates();
+  if (state.activeTemplateFilter === "ecard") {
+    els.templateList.classList.add("legacy-template-grid");
+    els.templateList.innerHTML = templates.map((item) => {
+      const card = legacyTemplateCards[item.template_id] || {
+        icon: "layout",
+        title: item.name,
+        desc: escapeHtml(item.description || item.template_id),
+        cta: "立即建立 →"
+      };
+      return `
+        <article class="legacy-template-card" data-template-id="${escapeHtml(item.template_id)}">
+          <div class="legacy-icon legacy-icon-${escapeHtml(card.icon)}">${legacyIcon(card.icon)}</div>
+          <h3>${escapeHtml(card.title)}</h3>
+          <p>${card.desc}</p>
+          <button class="legacy-template-action" type="button" data-use-template="${escapeHtml(item.template_id)}">${escapeHtml(card.cta)}</button>
+        </article>
+      `;
+    }).join("") || `<div class="empty-row">No templates</div>`;
+    return;
+  }
+  els.templateList.classList.remove("legacy-template-grid");
   els.templateList.innerHTML = templates.map((item) => `
     <article class="template-item">
       <strong>${escapeHtml(item.name)}</strong>
@@ -151,6 +199,24 @@ function renderTemplates() {
       <p><code>${escapeHtml(item.template_id)}</code></p>
     </article>
   `).join("") || `<div class="empty-row">No templates</div>`;
+}
+
+function legacyIcon(type) {
+  const icons = {
+    video: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="13" height="10" rx="2"></rect><circle cx="14" cy="12" r="1.8" fill="#fff"></circle></svg>',
+    person: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 20c.8-4.1 3.6-6.3 8-6.3s7.2 2.2 8 6.3z"></path></svg>',
+    sliders: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v16M12 4v16M18 4v16"></path><circle cx="6" cy="14" r="2"></circle><circle cx="12" cy="9" r="2"></circle><circle cx="18" cy="13" r="2"></circle></svg>',
+    layout: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"></rect><path d="M8 9h8M8 13h8M8 17h5"></path></svg>'
+  };
+  return icons[type] || icons.layout;
+}
+
+function useTemplate(templateId) {
+  const template = state.ecardTemplates.find((item) => item.template_id === templateId);
+  if (!template) return;
+  els.ecardTemplateSelect.value = templateId;
+  loadSelectedTemplateSample();
+  switchPanel("ecard");
 }
 
 function renderTemplateSelect() {
@@ -458,6 +524,12 @@ document.querySelectorAll("[data-template-filter]").forEach((button) => {
     });
     renderTemplates();
   });
+});
+
+els.templateList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-use-template]");
+  if (!button) return;
+  useTemplate(button.dataset.useTemplate);
 });
 
 document.querySelector("#refreshBtn").addEventListener("click", loadHub);

@@ -146,6 +146,74 @@
   gap: 14px;
 }
 
+.legacy-template-grid {
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 30px;
+  align-items: stretch;
+}
+
+.legacy-template-card {
+  min-height: 360px;
+  padding: 50px 32px 42px;
+  border: 1px solid #e2e8f0;
+  border-radius: 30px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 12px 22px rgba(15, 23, 42, .13), 0 2px 4px rgba(15, 23, 42, .08);
+}
+
+.legacy-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  background: #f1f5f9;
+  display: grid;
+  place-items: center;
+  margin-bottom: 34px;
+}
+
+.legacy-icon svg {
+  width: 34px;
+  height: 34px;
+  fill: #54c061;
+  stroke: #54c061;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.legacy-template-card h3 {
+  margin: 0 0 14px;
+  color: #0f2137;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: .02em;
+}
+
+.legacy-template-card p {
+  margin: 0;
+  min-height: 64px;
+  color: #8a9ab5;
+  font-size: 15px;
+  line-height: 1.65;
+  font-weight: 800;
+}
+
+.legacy-template-action {
+  margin-top: 32px;
+  border: 0;
+  border-bottom: 2px solid #54c061;
+  background: transparent;
+  color: #54c061;
+  padding: 0 0 8px;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
 .hub-two-col {
   display: grid;
   grid-template-columns: minmax(360px, .85fr) minmax(0, 1.15fr);
