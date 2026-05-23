@@ -19,9 +19,18 @@ const els = {
   ecardTemplateSelect: document.querySelector("#ecardTemplateSelect"),
   ecardDataInput: document.querySelector("#ecardDataInput"),
   flexOutput: document.querySelector("#flexOutput"),
+  ecardPreview: document.querySelector("#ecardPreview"),
+  ecardPreviewBadge: document.querySelector("#ecardPreviewBadge"),
+  ecardPreviewAvatar: document.querySelector("#ecardPreviewAvatar"),
+  ecardPreviewName: document.querySelector("#ecardPreviewName"),
+  ecardPreviewRole: document.querySelector("#ecardPreviewRole"),
+  ecardPreviewDesc: document.querySelector("#ecardPreviewDesc"),
+  ecardPreviewActions: document.querySelector("#ecardPreviewActions"),
   richMenuInput: document.querySelector("#richMenuInput"),
   richMenuOutput: document.querySelector("#richMenuOutput"),
   richMenuBadge: document.querySelector("#richMenuBadge"),
+  richMenuPreview: document.querySelector("#richMenuPreview"),
+  richMenuPreviewBadge: document.querySelector("#richMenuPreviewBadge"),
   voomUrlInput: document.querySelector("#voomUrlInput"),
   voomOutput: document.querySelector("#voomOutput"),
   adminTokenInput: document.querySelector("#adminTokenInput")
@@ -143,6 +152,7 @@ async function generateFlex() {
     const data = JSON.parse(els.ecardDataInput.value || "{}");
     const result = await hub.ecard.generateFlex(templateId, data);
     setOutput(els.flexOutput, result.flex);
+    renderEcardPreview(data, result.flex, templateId);
     showToast("Flex JSON 已產生");
   } catch (error) {
     setOutput(els.flexOutput, { success: false, message: error.message });
@@ -156,12 +166,68 @@ async function validateRichMenu() {
     const result = await hub.richMenu.validate(config);
     els.richMenuBadge.textContent = result.valid ? "通過" : "需修正";
     setOutput(els.richMenuOutput, result);
+    renderRichMenuPreview(result.richMenu || config, result.issues || []);
     showToast(result.valid ? "圖文選單驗證通過" : "圖文選單需要修正");
   } catch (error) {
     els.richMenuBadge.textContent = "錯誤";
     setOutput(els.richMenuOutput, { success: false, message: error.message });
     showToast("驗證失敗");
   }
+}
+
+function renderEcardPreview(data = {}, flex = {}, templateId = "") {
+  if (!els.ecardPreview) return;
+  const background = flex?.body?.background || {};
+  const start = background.startColor || background.color || "#57142b";
+  const end = background.endColor || background.color || "#46250c";
+  const angle = background.angle || "88deg";
+  const image = data.logo_url || data.logoUrl || data.avatar_url || data.image_url || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png";
+  els.ecardPreview.style.background = background.type === "linearGradient"
+    ? `linear-gradient(${angle}, ${start}, ${end})`
+    : start;
+  els.ecardPreviewBadge.textContent = templateId.replace("ecard-", "").toUpperCase();
+  els.ecardPreviewAvatar.src = image;
+  els.ecardPreviewName.textContent = data.name || data.title || data.company || "電子名片";
+  els.ecardPreviewRole.textContent = [data.title, data.company].filter(Boolean).join("｜") || "Digital Business Card";
+  els.ecardPreviewDesc.textContent = data.description || data.desc || data.service || data.bio || "很高興與你交換名片。";
+  const buttons = Array.isArray(data.buttons) && data.buttons.length ? data.buttons : [
+    { label: "LINE 聯絡", color: "#06C755" },
+    { label: "電話聯絡", color: "#3b82f6" },
+    { label: "地址導航", color: "#1e293b" }
+  ];
+  els.ecardPreviewActions.innerHTML = buttons.slice(0, 4).map((button) => `
+    <span style="background:${escapeHtml(button.color || button.c || "#06C755")}">${escapeHtml(button.label || button.l || "開啟")}</span>
+  `).join("");
+}
+
+function renderRichMenuPreview(menu = {}, issues = []) {
+  if (!els.richMenuPreview) return;
+  const size = menu.size || { width: 2500, height: 1686 };
+  const width = Number(size.width || 2500);
+  const height = Number(size.height || 1686);
+  els.richMenuPreviewBadge.textContent = `${width} × ${height}`;
+  els.richMenuPreview.style.aspectRatio = `${width} / ${height}`;
+  const areas = Array.isArray(menu.areas) ? menu.areas : [];
+  els.richMenuPreview.innerHTML = `
+    <div class="richmenu-base-label">${escapeHtml(menu.chatBarText || "選單")}</div>
+    ${areas.map((area, index) => {
+      const b = area.bounds || area;
+      const left = percentage(Number(b.x || 0), width);
+      const top = percentage(Number(b.y || 0), height);
+      const areaWidth = percentage(Number(b.width || b.w || 1), width);
+      const areaHeight = percentage(Number(b.height || b.h || 1), height);
+      const action = area.action || {};
+      return `<div class="richmenu-zone" style="left:${left}%;top:${top}%;width:${areaWidth}%;height:${areaHeight}%">
+        <strong>${index + 1}</strong>
+        <span>${escapeHtml(action.type || "uri")}</span>
+      </div>`;
+    }).join("")}
+    ${issues.length ? `<div class="richmenu-issue">${issues.length} 個問題</div>` : ""}
+  `;
+}
+
+function percentage(value, total) {
+  return Math.max(0, Math.min(100, (value / Math.max(1, total)) * 100));
 }
 
 async function extractVoom() {
@@ -247,4 +313,6 @@ els.richMenuInput.value = pretty(defaultRichMenu);
 setOutput(els.flexOutput, {});
 setOutput(els.richMenuOutput, {});
 setOutput(els.voomOutput, {});
+renderEcardPreview(defaultCardData, {}, "ecard-v2-business-card");
+renderRichMenuPreview(defaultRichMenu, []);
 loadHub();
