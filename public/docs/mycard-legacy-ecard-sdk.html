@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>名片王 V1-V4 電子名片 SDK 引用文件</title>
+  <style>
+    body{margin:0;background:#f4f7f5;color:#17211d;font-family:"Segoe UI","Microsoft JhengHei",Arial,sans-serif;line-height:1.75}
+    main{max-width:980px;margin:0 auto;padding:42px 22px 80px}
+    h1{font-size:34px;margin:0 0 8px}
+    h2{font-size:22px;margin:34px 0 12px;border-top:1px solid #d9e3dd;padding-top:24px}
+    p{margin:8px 0;color:#41534c}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #d9e3dd;border-radius:10px;overflow:hidden}
+    th,td{padding:12px 14px;border-bottom:1px solid #e7eee9;text-align:left}
+    th{background:#10231e;color:#fff}
+    code{background:#edf4ef;padding:2px 6px;border-radius:5px}
+    pre{background:#101d19;color:#d7f6e8;padding:18px;border-radius:10px;overflow:auto;white-space:pre-wrap}
+    .meta{color:#60746b;margin-bottom:28px}
+    .download{display:inline-flex;margin:18px 0 8px;padding:10px 14px;border-radius:8px;background:#1d7a5f;color:#fff;text-decoration:none;font-weight:800}
+  </style>
+</head>
+<body>
+<main>
+  <h1>名片王 V1-V4 電子名片 SDK 引用文件</h1>
+  <p class="meta">版本：v1.0 ｜ 適用：外部網站、Cloudflare Worker、APP WebView、LIFF、LINE Bot 後端、後台系統</p>
+  <a class="download" href="/sdk/mycard-hub.js" download>下載 SDK</a>
+
+  <h2>SDK URL</h2>
+  <pre>https://myvard.fangwl591021.workers.dev/sdk/mycard-hub.js</pre>
+
+  <h2>支援模板</h2>
+  <table>
+    <thead><tr><th>版本</th><th>模板 ID</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td>V1</td><td><code>ecard-v1-video-guide</code></td><td>影片導購</td></tr>
+      <tr><td>V2</td><td><code>ecard-v2-business-card</code></td><td>個人名片</td></tr>
+      <tr><td>V3</td><td><code>ecard-v3-catalog</code></td><td>商品目錄</td></tr>
+      <tr><td>V4</td><td><code>ecard-v4-video-rich-menu</code></td><td>影音圖文選單</td></tr>
+    </tbody>
+  </table>
+
+  <h2>一次取得 V1-V4 模板</h2>
+  <pre><code>import { createMyCardHub } from "https://myvard.fangwl591021.workers.dev/sdk/mycard-hub.js";
+
+const hub = createMyCardHub();
+const templates = await hub.ecard.legacy.getAll();
+
+console.log(templates.v1);
+console.log(templates.v2);
+console.log(templates.v3);
+console.log(templates.v4);</code></pre>
+
+  <h2>直接產生 Flex JSON</h2>
+  <pre><code>const v2 = await hub.ecard.legacy.v2({
+  title: "方萬隆",
+  desc: "創意總監\n名片王",
+  logo: "https://example.com/avatar.jpg",
+  buttons: [
+    { t: "加入好友", u: "https://line.me" }
+  ]
+});
+
+console.log(v2.flex);</code></pre>
+
+  <h2>版本代號</h2>
+  <pre><code>await hub.ecard.legacy.v1(data);
+await hub.ecard.legacy.v2(data);
+await hub.ecard.legacy.v3(data);
+await hub.ecard.legacy.v4(data);</code></pre>
+
+  <h2>模板 ID 常數</h2>
+  <pre><code>import { LEGACY_ECARD_TEMPLATE_IDS } from "https://myvard.fangwl591021.workers.dev/sdk/mycard-hub.js";
+
+console.log(LEGACY_ECARD_TEMPLATE_IDS);
+
+// {
+//   v1: "ecard-v1-video-guide",
+//   v2: "ecard-v2-business-card",
+//   v3: "ecard-v3-catalog",
+//   v4: "ecard-v4-video-rich-menu"
+// }</code></pre>
+
+  <h2>注意事項</h2>
+  <p>讀模板與產 Flex 不需要 Secret Key。修改模板、Seed 模板才需要 <code>MIGRATION_ADMIN_TOKEN</code>。</p>
+  <p>Wasabi Secret Key 不可放在外部專案前端。外部專案只需要讀 SDK 與呼叫公開 API。</p>
+</main>
+</body>
+</html>
