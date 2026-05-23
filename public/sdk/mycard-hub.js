@@ -43,7 +43,7 @@ export function createMyCardHub(options = {}) {
       save: (template, adminToken) => request("/api/hub/templates", {
         method: "POST",
         headers: adminToken ? { "x-hub-admin-token": adminToken } : undefined,
-        body: JSON.stringify(template || {})
+        body: JSON.stringify({ ...(template || {}), admin_token: adminToken || undefined })
       }),
       delete: (templateId, adminToken) => request(`/api/hub/templates/${encodeURIComponent(templateId)}`, {
         method: "DELETE",
@@ -52,13 +52,14 @@ export function createMyCardHub(options = {}) {
     },
     seed: (adminToken) => request("/api/hub/seed", {
       method: "POST",
-      headers: adminToken ? { "x-hub-admin-token": adminToken } : undefined
+      headers: adminToken ? { "x-hub-admin-token": adminToken } : undefined,
+      body: JSON.stringify({ admin_token: adminToken || undefined })
     }),
     assets: {
       upload: (asset, adminToken) => request("/api/hub/assets/upload", {
         method: "POST",
         headers: adminToken ? { "x-hub-admin-token": adminToken, "content-type": "application/json" } : undefined,
-        body: JSON.stringify(asset || {})
+        body: JSON.stringify({ ...(asset || {}), admin_token: adminToken || undefined })
       }),
       url: (assetId) => `${apiBase}/api/hub/assets/${encodeURIComponent(assetId)}`
     },

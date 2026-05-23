@@ -299,8 +299,8 @@ async function handleHubTemplate(_request, env, templateId) {
 }
 
 async function handleHubTemplateSave(request, env) {
-  requireHubAdmin(request, env);
   const body = await request.json().catch(() => ({}));
+  requireHubAdmin(request, env, body);
   const template = normalizeHubTemplate(body.template || body);
   await putHubTemplate(env, template);
   return hubJson({ template, saved: true });
@@ -322,7 +322,8 @@ async function handleHubTemplateDelete(request, env, templateId) {
 }
 
 async function handleHubSeed(request, env) {
-  requireHubAdmin(request, env);
+  const body = await request.json().catch(() => ({}));
+  requireHubAdmin(request, env, body);
   const saved = [];
   for (const template of BUILTIN_TEMPLATES) {
     const stored = { ...template, status: "seeded", seeded_from: "builtin", seeded_at: new Date().toISOString() };
@@ -353,8 +354,8 @@ async function handleHubEcardFlex(request, env) {
 }
 
 async function handleHubAssetUpload(request, env) {
-  requireHubAdmin(request, env);
   const body = await request.json().catch(() => ({}));
+  requireHubAdmin(request, env, body);
   const contentType = cleanText(body.content_type || body.contentType || "application/octet-stream").toLowerCase();
   const filename = cleanFilename(body.filename || `asset-${Date.now()}`);
   const moduleId = sanitizeHubType(body.module || "shared") || "shared";
@@ -1746,10 +1747,12 @@ function hubPath(env, path) {
   return appPath(env, `content-hub/${String(path || "").replace(/^\/+/, "")}`);
 }
 
-function requireHubAdmin(request, env) {
+function requireHubAdmin(request, env, body = null) {
   const expected = env.HUB_ADMIN_TOKEN || env.MIGRATION_ADMIN_TOKEN || "";
   if (!expected) throw new HttpError(503, "hub_admin_disabled", "HUB_ADMIN_TOKEN is not configured");
-  const provided = request.headers.get("x-hub-admin-token") || request.headers.get("x-admin-migration-token") || "";
+  const provided = request.headers.get("x-hub-admin-token")
+    || request.headers.get("x-admin-migration-token")
+    || cleanText(body?.admin_token || body?.hub_admin_token || body?.migration_admin_token);
   if (!provided || provided !== expected) throw new HttpError(401, "hub_admin_unauthorized", "Invalid hub admin token");
 }
 
