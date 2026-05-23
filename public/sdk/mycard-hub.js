@@ -1,5 +1,19 @@
 const DEFAULT_API_BASE = "https://myvard.fangwl591021.workers.dev";
 
+export const LEGACY_ECARD_TEMPLATE_IDS = {
+  v1: "ecard-v1-video-guide",
+  v2: "ecard-v2-business-card",
+  v3: "ecard-v3-catalog",
+  v4: "ecard-v4-video-rich-menu"
+};
+
+export const LEGACY_ECARD_TEMPLATE_ORDER = [
+  LEGACY_ECARD_TEMPLATE_IDS.v1,
+  LEGACY_ECARD_TEMPLATE_IDS.v2,
+  LEGACY_ECARD_TEMPLATE_IDS.v3,
+  LEGACY_ECARD_TEMPLATE_IDS.v4
+];
+
 export function createMyCardHub(options = {}) {
   const apiBase = String(options.apiBase || DEFAULT_API_BASE).replace(/\/$/, "");
   const tokenProvider = options.token;
@@ -26,6 +40,34 @@ export function createMyCardHub(options = {}) {
       method: "POST",
       body: JSON.stringify(body || {})
     });
+  }
+
+  async function listLegacyEcardTemplates() {
+    const result = await request("/api/hub/templates?type=ecard");
+    const templates = result.templates || [];
+    return {
+      ...result,
+      templates: LEGACY_ECARD_TEMPLATE_ORDER
+        .map((templateId) => templates.find((template) => template.template_id === templateId))
+        .filter(Boolean)
+    };
+  }
+
+  async function getLegacyEcardTemplates() {
+    const result = await listLegacyEcardTemplates();
+    return Object.fromEntries(
+      result.templates.map((template) => [legacyAlias(template.template_id), template])
+    );
+  }
+
+  function legacyAlias(templateId) {
+    return Object.entries(LEGACY_ECARD_TEMPLATE_IDS).find(([, id]) => id === templateId)?.[0] || templateId;
+  }
+
+  function generateLegacyFlex(version, data = {}) {
+    const key = String(version || "").toLowerCase();
+    const templateId = LEGACY_ECARD_TEMPLATE_IDS[key] || version;
+    return post("/api/hub/ecard/flex", { template_id: templateId, data });
   }
 
   return {
@@ -67,7 +109,18 @@ export function createMyCardHub(options = {}) {
       listTemplates: () => request("/api/hub/templates?type=ecard"),
       getTemplate: (templateId) => request(`/api/hub/templates/${encodeURIComponent(templateId)}`),
       render: (templateId, data = {}) => post("/api/hub/ecard/render", { template_id: templateId, data }),
-      generateFlex: (templateId, data = {}) => post("/api/hub/ecard/flex", { template_id: templateId, data })
+      generateFlex: (templateId, data = {}) => post("/api/hub/ecard/flex", { template_id: templateId, data }),
+      legacy: {
+        ids: LEGACY_ECARD_TEMPLATE_IDS,
+        order: LEGACY_ECARD_TEMPLATE_ORDER,
+        list: listLegacyEcardTemplates,
+        getAll: getLegacyEcardTemplates,
+        generateFlex: generateLegacyFlex,
+        v1: (data = {}) => generateLegacyFlex("v1", data),
+        v2: (data = {}) => generateLegacyFlex("v2", data),
+        v3: (data = {}) => generateLegacyFlex("v3", data),
+        v4: (data = {}) => generateLegacyFlex("v4", data)
+      }
     },
     richMenu: {
       listTemplates: () => request("/api/hub/richmenus/templates"),

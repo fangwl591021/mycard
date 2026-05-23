@@ -178,17 +178,28 @@
           <h2>SDK 使用方式</h2>
           <a class="ghost-button link-button" href="/sdk/mycard-hub.js" target="_blank" rel="noreferrer">查看 SDK</a>
         </div>
-        <pre><code>import { createMyCardHub } from "https://myvard.fangwl591021.workers.dev/sdk/mycard-hub.js";
+        <pre><code>import {
+  createMyCardHub,
+  LEGACY_ECARD_TEMPLATE_IDS
+} from "https://myvard.fangwl591021.workers.dev/sdk/mycard-hub.js";
 
 const hub = createMyCardHub({
   apiBase: "https://myvard.fangwl591021.workers.dev"
 });
 
-const templates = await hub.ecard.listTemplates();
-const flex = await hub.ecard.generateFlex("ecard-v2-business-card", {
-  name: "方萬隆",
-  title: "創意總監",
-  company: "名片王"
+// 一次取得 V1-V4 模板，給專案讀取 sample_data / fields / description
+const legacyTemplates = await hub.ecard.legacy.getAll();
+console.log(legacyTemplates.v1, legacyTemplates.v2, legacyTemplates.v3, legacyTemplates.v4);
+
+// 直接用指定版本產 Flex
+const v2 = await hub.ecard.legacy.v2({
+  title: "方萬隆",
+  desc: "創意總監\n名片王"
+});
+
+// 或用模板 ID 產 Flex
+const v4 = await hub.ecard.generateFlex(LEGACY_ECARD_TEMPLATE_IDS.v4, {
+  header_text: "點擊影片開啟完整影音"
 });</code></pre>
       </section>
     </section>
