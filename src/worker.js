@@ -28,31 +28,38 @@ const HUB_MODULES = [
 ];
 
 const V2_SOCIAL_ICONS = {
+  TEL: "https://aiwe.cc/wp-content/uploads/2026/02/7254567388850a6b4d77b75208ebd4b8.png",
+  LINEAT: "https://aiwe.cc/wp-content/uploads/2025/12/673ea1e705f2c04b01c2385856676a9a.png",
+  COMMUNITY: "https://aiwe.cc/wp-content/uploads/2026/02/90135b795720ba34d79f122bbc8d7d81.png",
+  IG: "https://aiwe.cc/wp-content/uploads/2026/02/0089b4a4960e49eba9140544307711c6.png",
   YT: "https://aiwe.cc/wp-content/uploads/2026/02/87e6f8054bd3672f2885e38bddb112e2.png",
   FB: "https://aiwe.cc/wp-content/uploads/2026/02/3986d1fd62384c8cdaa0e7c82f2740d1.png",
   LINE: "https://aiwe.cc/wp-content/uploads/2026/02/b75a5831fd553c7130aeafbb9783cf79.png",
-  TEL: "https://aiwe.cc/wp-content/uploads/2026/02/7254567388850a6b4d77b75208ebd4b8.png"
+  MAP: "https://aiwe.cc/wp-content/uploads/2026/02/5af1a3a285c2bdee4192223e31e1f833.png"
 };
 
 const BUILTIN_TEMPLATE_SAMPLE_DATA = {
   "ecard-v1-video-guide": {
-    title: "Video guide sample",
-    description: "A video-first Flex card with social icons and three CTA buttons.",
-    video_url: "https://obs.line-scdn.net/h9B3GDtq9emxVUmlibAR9FXJqcUNxVSB-WgQhQ3s9MF5IeHN9YC5OU1BhRFVzUVE5SQdJA3hcU11Ca1U4YANWUkNhUBtIRVZ5WRNZV3tbORs/mp4",
-    preview_url: "https://upload.cc/i1/2022/07/29/ygc1lF.png",
-    aspect_ratio: "1040:748",
-    bubble_size: "giga",
-    background_color: "#FFFFFF",
-    socials: [
-      { type: "TEL", uri: "tel:0912345678" },
-      { type: "FB", uri: "https://www.facebook.com" },
-      { type: "IG", uri: "https://www.instagram.com" },
-      { type: "YT", uri: "https://www.youtube.com" }
+    v: "https://obs.line-scdn.net/h9B3GDtq9emxVUmlibAR9FXJqcUNxVSB-WgQhQ3s9MF5IeHN9YC5OU1BhRFVzUVE5SQdJA3hcU11Ca1U4YANWUkNhUBtIRVZ5WRNZV3tbORs/mp4",
+    p: "https://upload.cc/i1/2022/07/29/ygc1lF.png",
+    aspect: "1040:748",
+    size: "giga",
+    globalBg: "#FFFFFF",
+    title: "請輸入姓名或公司名稱",
+    titleColor: "#111111",
+    titleAlign: "start",
+    desc: "✨一行建議16個字\n✨可以簡介公司或是活動內容\n✨四到六排的高度較為適中，不建議太長\n✨多分享、多收穫",
+    descColor: "#666666",
+    s: [
+      { t: "TEL", u: "tel:0912345678" },
+      { t: "FB", u: "https://www.facebook.com" },
+      { t: "IG", u: "https://www.instagram.com" },
+      { t: "YT", u: "https://www.youtube.com" }
     ],
-    buttons: [
-      { label: "Join LINE", uri: "https://line.me", color: "#111111" },
-      { label: "Booking", uri: "https://line.me", color: "#111111" },
-      { label: "More info", uri: "https://line.me", color: "#111111" }
+    b: [
+      { t: "預約服務", u: "https://line.me", c: "#111111", tc: "#FFFFFF" },
+      { t: "官方網站", u: "https://line.me", c: "#111111", tc: "#FFFFFF" },
+      { t: "加入好友", u: "https://line.me", c: "#111111", tc: "#FFFFFF" }
     ]
   },
   "ecard-v2-business-card": {
@@ -68,29 +75,26 @@ const BUILTIN_TEMPLATE_SAMPLE_DATA = {
       { type: "TEL", u: "tel:0912345678" }
     ],
     buttons: [
-      { t: "New Button", u: "https://line.me" },
-      { t: "New Button", u: "https://line.me" },
       { t: "New Button", u: "https://line.me" }
     ]
   },
   "ecard-v3-catalog": {
-    title: "Product catalog sample",
     hero_url: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png",
-    button_color: "#0000FF",
-    button_text_color: "#FFFFFF",
+    btn_color: "#0000FF",
+    btn_txt_color: "#FFFFFF",
     bubble_size: "mega",
     items: [
-      { title: "Sample product A", price: "390", image_url: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png", button_text: "Buy", uri: "https://line.me" },
-      { title: "Sample product B", price: "590", image_url: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_2_restaurant.png", button_text: "Buy", uri: "https://line.me" }
+      { img: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png", desc: "商品標題建議兩行內，呈現最美觀的比例。", price: "500", btnText: "買", data: "buy_01" },
+      { img: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png", desc: "緊湊型佈局：Padding 已由 10px 縮減至 5px。", price: "380", btnText: "買", data: "buy_02" }
     ],
     socials: [
-      { type: "LINE", uri: "https://line.me" },
-      { type: "FB", uri: "https://facebook.com" },
-      { type: "IG", uri: "https://instagram.com" }
+      { type: "YT", u: "https://youtube.com" },
+      { type: "FB", u: "https://facebook.com" },
+      { type: "LINE", u: "https://line.me" }
     ]
   },
   "ecard-v4-video-rich-menu": {
-    header_text: "Click the video to open full media",
+    header_text: "點擊影片開啟完整影音",
     header_color: "#eb5a09",
     video_url: "https://example.com/video.mp4",
     preview_url: "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png",
@@ -1994,7 +1998,7 @@ function buildBusinessCardFlex(input = {}) {
         paddingTop: "xs",
         paddingBottom: "xs",
         margin: "lg",
-        contents: socials.slice(0, 5).map((item) => ({
+        contents: socials.map((item) => ({
           type: "image",
           url: item.iconUrl,
           size: "70px",
@@ -2012,7 +2016,7 @@ function buildBusinessCardFlex(input = {}) {
       spacing: "none",
       margin: "lg",
       alignItems: "center",
-      contents: regularButtons.slice(0, 6).map((button) => ({
+      contents: regularButtons.map((button) => ({
         type: "box",
         layout: "vertical",
         backgroundColor: "#ffffff",
@@ -2050,72 +2054,182 @@ function buildBusinessCardFlex(input = {}) {
 }
 
 function buildVideoGuideFlex(input = {}) {
-  const title = cleanText(input.title || input.name || "Video Guide");
-  const desc = cleanText(input.description || input.desc || "Tap to watch the full introduction.");
-  const videoUrl = cleanText(input.video_url || input.videoUrl || "https://example.com/video.mp4");
-  const previewUrl = cleanText(input.preview_url || input.previewUrl || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png");
+  const videoUrl = cleanText(input.v || input.video_url || input.videoUrl || "");
+  const previewUrl = cleanText(input.p || input.preview_url || input.previewUrl || "");
+  const aspect = cleanText(input.aspect || input.aspect_ratio || "1040:748");
+  const size = cleanText(input.size || input.bubble_size || "giga");
+  const globalBg = cleanText(input.globalBg || input.background_color || "#FFFFFF");
+  const title = cleanText(input.title || "請輸入姓名或公司名稱");
+  const titleColor = cleanText(input.titleColor || input.title_color || "#111111");
+  const titleAlign = cleanText(input.titleAlign || input.title_align || "start");
+  const desc = cleanText(input.desc || input.description || "✨一行建議16個字\n✨可以簡介公司或是活動內容\n✨四到六排的高度較為適中，不建議太長\n✨多分享、多收穫");
+  const descColor = cleanText(input.descColor || input.desc_color || "#666666");
+  const socials = normalizeV1Socials(input.s || input.socials);
+  const buttons = normalizeV1Buttons(input.b || input.buttons);
   return {
     type: "bubble",
+    size,
     hero: {
       type: "video",
       url: videoUrl,
       previewUrl,
-      altContent: { type: "image", url: previewUrl, size: "full", aspectRatio: "20:13", aspectMode: "cover" },
-      aspectRatio: cleanText(input.aspect_ratio || "20:13")
+      altContent: { type: "image", size: "full", aspectRatio: aspect, aspectMode: "cover", url: previewUrl },
+      aspectRatio: aspect
     },
     body: {
       type: "box",
       layout: "vertical",
+      backgroundColor: globalBg,
+      paddingAll: "sm",
       contents: [
-        { type: "text", text: title, weight: "bold", size: "xl", wrap: true },
-        { type: "text", text: desc, size: "sm", color: "#666666", wrap: true, margin: "md" }
+        { type: "text", text: title, weight: "bold", size: "md", wrap: true, color: titleColor, align: titleAlign },
+        { type: "text", text: desc, size: "xs", wrap: true, color: descColor, margin: "md" },
+        {
+          type: "box",
+          layout: "horizontal",
+          spacing: "sm",
+          margin: "lg",
+          contents: socials.map((social) => ({
+            type: "image",
+            url: social.iconUrl,
+            size: "full",
+            aspectRatio: "1:1",
+            aspectMode: "cover",
+            animated: true,
+            action: { type: "uri", label: "icon", uri: sanitizeFlexUri(social.uri || "https://line.me") }
+          }))
+        }
       ]
     },
-    footer: { type: "box", layout: "vertical", contents: normalizeFlexButtons(input.buttons || defaultHubButtons(input)).slice(0, 3).map(toLineButton) }
+    footer: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      paddingAll: "sm",
+      backgroundColor: globalBg,
+      contents: buttons.map((button) => ({
+        type: "box",
+        layout: "vertical",
+        contents: [{ type: "text", text: button.t || " ", color: button.tc, align: "center", size: "sm", weight: "bold" }],
+        paddingAll: "md",
+        cornerRadius: "md",
+        backgroundColor: button.c,
+        action: { type: "uri", label: "action", uri: sanitizeFlexUri(button.u || "https://line.me") }
+      }))
+    }
   };
 }
 
 function buildCatalogFlex(input = {}) {
-  const items = Array.isArray(input.items) && input.items.length ? input.items : [
-    { title: input.title || "Catalog item", price: input.price || "", image_url: input.hero_url || input.heroUrl || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png", uri: input.uri || "https://line.me" }
-  ];
+  const heroUrl = cleanText(input.hero_url || input.heroUrl || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png");
+  const btnColor = cleanText(input.btn_color || input.button_color || "#0000FF");
+  const btnTxtColor = cleanText(input.btn_txt_color || input.button_text_color || "#FFFFFF");
+  const bubbleSize = cleanText(input.bubble_size || "mega");
+  const fontSize = ({ giga: "sm", mega: "xs", kilo: "xxs" })[bubbleSize] || "xs";
+  const socialLimit = ({ giga: 6, mega: 5, kilo: 4 })[bubbleSize] || 5;
+  const items = Array.isArray(input.items) && input.items.length ? input.items : BUILTIN_TEMPLATE_SAMPLE_DATA["ecard-v3-catalog"].items;
+  const socials = normalizeV3Socials(input.socials);
+  const bodyContents = items.map((item, index) => {
+    const row = {
+      type: "box",
+      layout: "horizontal",
+      paddingAll: "5px",
+      contents: [
+        { type: "image", url: cleanText(item.img || item.image_url || item.image || heroUrl), size: "sm", aspectMode: "cover", aspectRatio: "1:1", flex: 1 },
+        {
+          type: "box",
+          layout: "vertical",
+          flex: 4,
+          offsetStart: "8px",
+          contents: [
+            { type: "text", text: cleanText(item.desc || item.title || ""), size: fontSize, wrap: true, color: "#111111", weight: "bold" },
+            { type: "text", text: `NT$ ${cleanText(item.price || "")}`, weight: "bold", size: fontSize, color: "#FF0000", margin: "xs" }
+          ]
+        },
+        {
+          type: "box",
+          layout: "vertical",
+          width: "36px",
+          height: "36px",
+          backgroundColor: btnColor,
+          cornerRadius: "100px",
+          justifyContent: "center",
+          alignItems: "center",
+          flex: 0,
+          contents: [{ type: "text", text: cleanText(item.btnText || item.button_text || "買"), color: btnTxtColor, size: "sm", weight: "bold", align: "center" }],
+          action: { type: "postback", data: cleanText(item.data || "buy") }
+        }
+      ]
+    };
+    return index < items.length - 1 ? [row, { type: "separator", color: "#F0F0F0" }] : [row];
+  }).flat();
+  bodyContents.push({ type: "box", layout: "vertical", height: "10px", contents: [] });
   return {
-    type: "carousel",
-    contents: items.slice(0, 8).map((item) => ({
-      type: "bubble",
-      hero: { type: "image", url: cleanText(item.image_url || item.img || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png"), size: "full", aspectRatio: "20:13", aspectMode: "cover" },
-      body: {
-        type: "box",
-        layout: "vertical",
-        contents: [
-          { type: "text", text: cleanText(item.title || item.desc || "Product"), weight: "bold", wrap: true },
-          { type: "text", text: cleanText(item.price || ""), size: "sm", color: "#777777", margin: "sm" }
-        ]
-      },
-      footer: { type: "box", layout: "vertical", contents: [toLineButton({ label: item.button_text || item.btnText || "View", uri: item.uri || item.url || "https://line.me", color: input.button_color || "#1d7a5f" })] }
-    }))
+    type: "bubble",
+    size: bubbleSize,
+    hero: { type: "box", layout: "vertical", paddingAll: "0px", contents: [{ type: "image", url: heroUrl, size: "full", aspectRatio: "12:5", aspectMode: "cover" }] },
+    body: { type: "box", layout: "vertical", paddingAll: "0px", contents: bodyContents },
+    footer: {
+      type: "box",
+      layout: "horizontal",
+      paddingAll: "10px",
+      contents: socials.slice(0, socialLimit).map((social) => ({
+        type: "image",
+        url: social.iconUrl,
+        size: "xs",
+        aspectRatio: "1:1",
+        animated: true,
+        action: { type: "uri", uri: sanitizeFlexUri(social.uri || "https://line.me") }
+      })),
+      justifyContent: "center",
+      spacing: "lg"
+    }
   };
 }
 
 function buildVideoRichMenuFlex(input = {}) {
   const zones = Array.isArray(input.zones) ? input.zones : [];
-  return {
-    type: "bubble",
-    hero: {
-      type: "video",
-      url: cleanText(input.video_url || input.videoUrl || "https://example.com/video.mp4"),
-      previewUrl: cleanText(input.preview_url || input.previewUrl || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png"),
-      altContent: { type: "image", url: cleanText(input.base_image || input.baseImage || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png"), size: "full", aspectRatio: cleanText(input.base_ratio || "20:13"), aspectMode: "cover" },
-      aspectRatio: cleanText(input.video_ratio || "20:13")
-    },
-    body: {
+  const headerText = cleanText(input.header_text || input.headerText || "點擊影片開啟完整影音");
+  const headerColor = cleanText(input.header_color || input.headerColor || "#eb5a09");
+  const videoUrl = cleanText(input.video_url || input.videoUrl || "https://example.com/video.mp4");
+  const previewUrl = cleanText(input.preview_url || input.previewUrl || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png");
+  const videoRatio = cleanText(input.video_ratio || input.videoRatio || "800:450");
+  const baseImage = cleanText(input.base_image || input.baseImage || "https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png");
+  const baseRatio = cleanText(input.base_ratio || input.baseRatio || "2500:1686");
+  const designWidth = Number(input.design_width || input.designWidth || 2500) || 2500;
+  const scale = 390 / designWidth;
+  const bodyContents = [
+    { type: "image", url: baseImage, size: "full", aspectRatio: baseRatio, aspectMode: "cover" },
+    ...zones.map((zone) => ({
       type: "box",
       layout: "vertical",
-      contents: [
-        { type: "text", text: cleanText(input.header_text || "Tap the video to open full media"), weight: "bold", wrap: true },
-        { type: "text", text: `${zones.length} clickable zones`, size: "xs", color: "#777777", margin: "sm" }
-      ]
-    }
+      position: "absolute",
+      offsetStart: `${Math.round(Number(zone.x || 0) * scale)}px`,
+      offsetTop: `${Math.round(Number(zone.y || 0) * scale)}px`,
+      width: `${Math.max(1, Math.round(Number(zone.w || zone.width || 1) * scale))}px`,
+      height: `${Math.max(1, Math.round(Number(zone.h || zone.height || 1) * scale))}px`,
+      action: { type: "uri", label: cleanText(zone.label || "action"), uri: sanitizeFlexUri(zone.uri || "https://line.me") },
+      contents: [{ type: "filler" }]
+    }))
+  ];
+  return {
+    type: "bubble",
+    size: "giga",
+    header: {
+      type: "box",
+      layout: "vertical",
+      contents: [{ type: "text", text: headerText, size: "sm", weight: "bold", align: "end", color: "#FFFFFF" }],
+      paddingAll: "10px",
+      backgroundColor: headerColor
+    },
+    hero: {
+      type: "video",
+      url: videoUrl,
+      previewUrl,
+      altContent: { type: "image", size: "full", aspectRatio: videoRatio, aspectMode: "cover", url: previewUrl },
+      aspectRatio: videoRatio
+    },
+    body: { type: "box", layout: "vertical", contents: bodyContents, paddingAll: "0px" }
   };
 }
 
@@ -2131,6 +2245,37 @@ function normalizeFlexBackground(value) {
   }
   if (value?.color) return { type: "solid", color: cleanText(value.color) };
   return { type: "linearGradient", angle: "88deg", startColor: "#57142b", endColor: "#46250c" };
+}
+
+function normalizeV1Socials(socials) {
+  return (Array.isArray(socials) ? socials : []).map((item) => {
+    const type = cleanText(item.t || item.type || "LINE").toUpperCase().replace("@", "AT");
+    return {
+      type,
+      iconUrl: cleanText(item.iconUrl || item.icon_url || V2_SOCIAL_ICONS[type] || V2_SOCIAL_ICONS.LINE),
+      uri: cleanText(item.u || item.uri || item.url || "https://line.me")
+    };
+  });
+}
+
+function normalizeV1Buttons(buttons) {
+  return (Array.isArray(buttons) ? buttons : []).map((button) => ({
+    t: cleanText(button.t || button.label || button.text || " "),
+    u: cleanText(button.u || button.uri || button.url || "https://line.me"),
+    c: cleanText(button.c || button.color || "#111111"),
+    tc: cleanText(button.tc || button.textColor || button.text_color || "#FFFFFF")
+  }));
+}
+
+function normalizeV3Socials(socials) {
+  return (Array.isArray(socials) ? socials : []).map((item) => {
+    const type = cleanText(item.type || "LINE").toUpperCase();
+    return {
+      type,
+      iconUrl: cleanText(item.iconUrl || item.icon_url || V2_SOCIAL_ICONS[type] || V2_SOCIAL_ICONS.LINE),
+      uri: cleanText(item.u || item.uri || item.url || "https://line.me")
+    };
+  });
 }
 
 function normalizeV2Socials(socials) {
