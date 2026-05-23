@@ -24,6 +24,13 @@ const HUB_MODULES = [
     type: "template-library",
     status: "active",
     description: "Reusable Flex templates and sample data for digital business cards."
+  },
+  {
+    id: "line-oa-crm",
+    name: "LINE OA CRM Monitor",
+    type: "tool",
+    status: "active",
+    description: "Reusable LINE OA thread, message, member-import, and audience-analysis module adapted from hostel."
   }
 ];
 
@@ -293,6 +300,34 @@ export default {
       const hubVoomJobRoute = url.pathname.match(/^\/api\/hub\/voom\/jobs\/([^/]+)$/);
       if (hubVoomJobRoute && request.method === "GET") {
         return await handleHubVoomJob(request, env, hubVoomJobRoute[1]);
+      }
+
+      if (url.pathname === "/api/hub/line-oa-crm/schema" && request.method === "GET") {
+        return handleHubLineOaCrmSchema();
+      }
+
+      if (url.pathname === "/api/hub/line-oa-crm/threads" && request.method === "GET") {
+        return await handleHubLineOaCrmThreads(request, env);
+      }
+
+      if (url.pathname === "/api/hub/line-oa-crm/thread" && request.method === "GET") {
+        return await handleHubLineOaCrmThread(request, env);
+      }
+
+      if (url.pathname === "/api/hub/line-oa-crm/thread" && request.method === "POST") {
+        return await handleHubLineOaCrmThreadSave(request, env);
+      }
+
+      if (url.pathname === "/api/hub/line-oa-crm/audience" && request.method === "GET") {
+        return await handleHubLineOaCrmAudience(request, env);
+      }
+
+      if (url.pathname === "/api/hub/line-oa-crm/import-members" && request.method === "POST") {
+        return await handleHubLineOaCrmImportMembers(request, env);
+      }
+
+      if (url.pathname === "/api/hub/line-oa-crm/ingest-line-events" && request.method === "POST") {
+        return await handleHubLineOaCrmIngestEvents(request, env);
       }
 
       if (url.pathname === "/api/admin/import/line-users" && request.method === "POST") {
@@ -568,6 +603,202 @@ async function handleHubVoomJob(_request, env, jobId) {
   const job = await safeGetHubJson(env, `modules/voom/items/${safeJobId}.json`);
   if (!job) throw new HttpError(404, "voom_job_not_found", "VOOM job not found");
   return hubJson({ job });
+}
+
+function handleHubLineOaCrmSchema() {
+  return hubJson({
+    module: "line-oa-crm",
+    source: "fangwl591021/hostel",
+    storage: "wasabi-json",
+    paths: {
+      thread: "content-hub/modules/line-oa-crm/threads/{thread_id}.json",
+      message: "content-hub/modules/line-oa-crm/messages/{thread_id}/{message_id}.json",
+      thread_index: "content-hub/modules/line-oa-crm/indexes/threads.json"
+    },
+    thread_fields: [
+      "id",
+      "source_user_id",
+      "display_name",
+      "picture_url",
+      "status",
+      "risk_level",
+      "summary",
+      "tags",
+      "note",
+      "last_message_at"
+    ],
+    crm_note: "Imported LINE_user_id rows create the CRM audience pool; names, avatars, and chat detail are enriched after interaction."
+  });
+}
+
+async function handleHubLineOaCrmThreads(request, env) {
+  const url = new URL(request.url);
+  const limit = Math.max(1, Math.min(500, Number(url.searchParams.get("limit") || 200)));
+  const index = await loadLineOaCrmThreadIndex(env);
+  const rows = [];
+  for (const item of (index.threads || []).slice(0, limit)) {
+    const thread = await getLineOaCrmThread(env, item.id || item.thread_id);
+    if (thread) rows.push(toLineOaCrmThreadListItem(thread));
+  }
+  return hubJson({ data: rows, count: rows.length, total: index.threads?.length || 0 });
+}
+
+async function handleHubLineOaCrmThread(request, env) {
+  const url = new URL(request.url);
+  const threadId = sanitizeId(url.searchParams.get("id") || url.searchParams.get("thread_id") || "");
+  if (!threadId) throw new HttpError(400, "missing_thread_id", "Missing thread id");
+  const thread = await getLineOaCrmThread(env, threadId);
+  if (!thread) throw new HttpError(404, "thread_not_found", "Thread not found");
+  return hubJson({ data: toLineOaCrmThreadDetail(thread) });
+}
+
+async function handleHubLineOaCrmThreadSave(request, env) {
+  const body = await request.json().catch(() => ({}));
+  requireHubAdmin(request, env, body);
+  const thread = normalizeLineOaCrmThread(body.thread || body);
+  const saved = await upsertLineOaCrmThread(env, thread);
+  return hubJson({ data: toLineOaCrmThreadDetail(saved), saved: true });
+}
+
+async function handleHubLineOaCrmAudience(_request, env) {
+  const index = await loadLineOaCrmThreadIndex(env);
+  const threads = [];
+  for (const item of (index.threads || []).slice(0, 1200)) {
+    const thread = await getLineOaCrmThread(env, item.id || item.thread_id);
+    if (thread) threads.push(thread);
+  }
+  const now = Date.now();
+  const since7d = now - 7 * 24 * 60 * 60 * 1000;
+  const since30d = now - 30 * 24 * 60 * 60 * 1000;
+  const tagCounts = new Map();
+  let totalMessages = 0;
+  let messages7d = 0;
+  let messages30d = 0;
+  for (const thread of threads) {
+    for (const tag of lineOaCrmTags(thread)) tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+    for (const msg of Array.isArray(thread.messages) ? thread.messages : []) {
+      const at = Date.parse(msg.created_at || msg.createdAt || "");
+      totalMessages += 1;
+      if (at >= since7d) messages7d += 1;
+      if (at >= since30d) messages30d += 1;
+    }
+  }
+  return hubJson({
+    data: {
+      generatedAt: new Date().toISOString(),
+      overview: {
+        totalThreads: threads.length,
+        openThreads: threads.filter((item) => item.status === "open").length,
+        highRiskThreads: threads.filter((item) => item.risk_level === "high").length,
+        mediumRiskThreads: threads.filter((item) => item.risk_level === "medium").length,
+        activeThreads7d: threads.filter((item) => Date.parse(item.last_message_at || "") >= since7d).length,
+        activeThreads30d: threads.filter((item) => Date.parse(item.last_message_at || "") >= since30d).length,
+        unreadMessages: threads.reduce((sum, item) => sum + Number(item.unread_count || 0), 0),
+        totalMessages,
+        messages7d,
+        messages30d
+      },
+      tags: [...tagCounts.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, 24),
+      riskThreads: threads
+        .filter((item) => ["high", "medium"].includes(item.risk_level))
+        .sort((a, b) => riskWeight(b.risk_level) - riskWeight(a.risk_level) || String(b.last_message_at || "").localeCompare(String(a.last_message_at || "")))
+        .slice(0, 20)
+        .map(toLineOaCrmThreadListItem)
+    }
+  });
+}
+
+async function handleHubLineOaCrmImportMembers(request, env) {
+  const body = await request.json().catch(() => ({}));
+  requireHubAdmin(request, env, body);
+  const now = new Date().toISOString();
+  const members = normalizeLineOaCrmImportMembers(body);
+  let created = 0;
+  let updated = 0;
+  const imported = [];
+  for (const member of members.slice(0, 10000)) {
+    const threadId = lineOaCrmThreadId(member.line_user_id || member.user_id);
+    if (!threadId) continue;
+    const existing = await getLineOaCrmThread(env, threadId);
+    const next = normalizeLineOaCrmThread({
+      ...(existing || {}),
+      id: threadId,
+      source_user_id: member.line_user_id || member.user_id,
+      display_name: existing?.display_name || member.display_name || member.name || member.line_user_id || member.user_id,
+      status: existing?.status || "open",
+      risk_level: existing?.risk_level || "low",
+      summary: existing?.summary || "Imported from mother-site LINE_user_id list.",
+      tags: mergeLineOaCrmTags(existing?.tags, ["imported", "mother-site", ...(member.tags || [])]),
+      crm: {
+        ...(existing?.crm || {}),
+        source: member.source || body.source || "hostel",
+        segment: member.segment || member.type || "",
+        imported_at: existing?.crm?.imported_at || now
+      },
+      created_at: existing?.created_at || now,
+      updated_at: now
+    });
+    await upsertLineOaCrmThread(env, next);
+    if (existing) updated += 1; else created += 1;
+    imported.push(threadId);
+  }
+  await safePutHubJson(env, `modules/line-oa-crm/imports/import_${Date.now()}_${randomString(6)}.json`, {
+    source: body.source || "hostel",
+    created,
+    updated,
+    total: imported.length,
+    sample_thread_ids: imported.slice(0, 20),
+    imported_at: now
+  });
+  return hubJson({ imported: imported.length, created, updated, thread_ids: imported.slice(0, 50) });
+}
+
+async function handleHubLineOaCrmIngestEvents(request, env) {
+  const body = await request.json().catch(() => ({}));
+  requireHubAdmin(request, env, body);
+  const events = Array.isArray(body.events) ? body.events : Array.isArray(body.payload?.events) ? body.payload.events : [];
+  let stored = 0;
+  for (const event of events.slice(0, 200)) {
+    const source = event.source || {};
+    const sourceId = source.userId || source.groupId || source.roomId || event.userId || event.line_user_id;
+    const threadId = lineOaCrmThreadId(sourceId);
+    if (!threadId) continue;
+    const createdAt = event.timestamp ? new Date(Number(event.timestamp)).toISOString() : new Date().toISOString();
+    const text = getLineOaCrmEventText(event);
+    const existing = await getLineOaCrmThread(env, threadId);
+    const message = {
+      id: sanitizeId(event.webhookEventId || event.message?.id || `msg_${Date.now()}_${randomString(8)}`),
+      line_event_id: cleanText(event.webhookEventId || ""),
+      reply_token: cleanText(event.replyToken || ""),
+      message_type: cleanText(event.message?.type || event.type || "event"),
+      sender_role: "user",
+      sender_id: cleanText(sourceId),
+      sender_name: cleanText(event.displayName || existing?.display_name || sourceId),
+      message_text: text,
+      raw_json: event,
+      created_at: createdAt
+    };
+    const next = normalizeLineOaCrmThread({
+      ...(existing || {}),
+      id: threadId,
+      source_user_id: source.userId || existing?.source_user_id || "",
+      source_group_id: source.groupId || source.roomId || existing?.source_group_id || "",
+      display_name: existing?.display_name || message.sender_name || sourceId,
+      status: existing?.status || "open",
+      risk_level: strongestRisk(existing?.risk_level || "low", summarizeLineOaRisk(text).risk),
+      summary: text || existing?.summary || "",
+      unread_count: Number(existing?.unread_count || 0) + 1,
+      tags: mergeLineOaCrmTags(existing?.tags, summarizeLineOaRisk(text).tags),
+      messages: [...(existing?.messages || []).filter((item) => item.id !== message.id), message].slice(-500),
+      last_message_at: createdAt,
+      created_at: existing?.created_at || createdAt,
+      updated_at: new Date().toISOString()
+    });
+    await upsertLineOaCrmThread(env, next);
+    await safePutHubJson(env, `modules/line-oa-crm/messages/${threadId}/${message.id}.json`, message);
+    stored += 1;
+  }
+  return hubJson({ stored, events: events.length });
 }
 
 async function handleLineAuth(request, env) {
@@ -1851,6 +2082,208 @@ function withTemplateSampleData(template) {
   };
 }
 
+async function loadLineOaCrmThreadIndex(env) {
+  return await safeGetHubJson(env, "modules/line-oa-crm/indexes/threads.json") || { threads: [], updated_at: "" };
+}
+
+async function saveLineOaCrmThreadIndex(env, index) {
+  index.threads = (index.threads || [])
+    .filter((item) => item && item.id)
+    .sort((a, b) => String(b.last_message_at || b.updated_at || "").localeCompare(String(a.last_message_at || a.updated_at || "")))
+    .slice(0, 10000);
+  index.updated_at = new Date().toISOString();
+  await safePutHubJson(env, "modules/line-oa-crm/indexes/threads.json", index);
+  return index;
+}
+
+async function getLineOaCrmThread(env, threadId) {
+  const safeThreadId = sanitizeId(threadId);
+  if (!safeThreadId) return null;
+  return await safeGetHubJson(env, `modules/line-oa-crm/threads/${safeThreadId}.json`);
+}
+
+async function upsertLineOaCrmThread(env, input) {
+  const thread = normalizeLineOaCrmThread(input);
+  await safePutHubJson(env, `modules/line-oa-crm/threads/${thread.id}.json`, thread);
+  const index = await loadLineOaCrmThreadIndex(env);
+  const indexItem = {
+    id: thread.id,
+    source_user_id: thread.source_user_id,
+    display_name: thread.display_name,
+    status: thread.status,
+    risk_level: thread.risk_level,
+    tags: thread.tags,
+    last_message_at: thread.last_message_at,
+    updated_at: thread.updated_at
+  };
+  index.threads = [indexItem, ...(index.threads || []).filter((item) => item.id !== thread.id)];
+  await saveLineOaCrmThreadIndex(env, index);
+  return thread;
+}
+
+function normalizeLineOaCrmThread(input = {}) {
+  const now = new Date().toISOString();
+  const sourceUserId = cleanText(input.source_user_id || input.sourceUserId || input.line_user_id || input.lineUserId || input.userId);
+  const sourceGroupId = cleanText(input.source_group_id || input.sourceGroupId || input.groupId || input.roomId);
+  const id = sanitizeId(input.id || input.thread_id || input.threadId || lineOaCrmThreadId(sourceUserId || sourceGroupId));
+  if (!id) throw new HttpError(400, "missing_thread_id", "Missing LINE OA CRM thread id");
+  return {
+    id,
+    module: "line-oa-crm",
+    source_type: cleanText(input.source_type || input.sourceType || "line_oa"),
+    source_user_id: sourceUserId,
+    source_group_id: sourceGroupId,
+    display_name: cleanText(input.display_name || input.displayName || input.name || sourceUserId || sourceGroupId),
+    picture_url: cleanText(input.picture_url || input.pictureUrl || ""),
+    status: ["open", "pending", "closed"].includes(input.status) ? input.status : "open",
+    risk_level: ["low", "medium", "high"].includes(input.risk_level || input.risk) ? (input.risk_level || input.risk) : "low",
+    summary: cleanText(input.summary || ""),
+    unread_count: Number(input.unread_count || input.unread || 0),
+    tags: mergeLineOaCrmTags(input.tags, []),
+    note: cleanText(input.note || ""),
+    signals: input.signals && typeof input.signals === "object" ? input.signals : {
+      inferred_area: cleanText(input.inferred_area || input.inferredArea || ""),
+      inferred_gender: cleanText(input.inferred_gender || input.inferredGender || ""),
+      inferred_confidence: cleanText(input.inferred_confidence || input.inferredConfidence || "")
+    },
+    location: input.location && typeof input.location === "object" ? input.location : {
+      address: cleanText(input.location_address || input.locationAddress || ""),
+      latitude: input.location_latitude === undefined ? null : Number(input.location_latitude),
+      longitude: input.location_longitude === undefined ? null : Number(input.location_longitude)
+    },
+    crm: input.crm && typeof input.crm === "object" ? input.crm : {},
+    messages: Array.isArray(input.messages) ? input.messages.slice(-500).map(normalizeLineOaCrmMessage) : [],
+    last_message_at: cleanText(input.last_message_at || input.lastMessageAt || now),
+    created_at: cleanText(input.created_at || input.createdAt || now),
+    updated_at: cleanText(input.updated_at || input.updatedAt || now)
+  };
+}
+
+function normalizeLineOaCrmMessage(input = {}) {
+  return {
+    id: sanitizeId(input.id || input.message_id || input.messageId || `msg_${Date.now()}_${randomString(6)}`),
+    line_event_id: cleanText(input.line_event_id || input.lineEventId || ""),
+    reply_token: cleanText(input.reply_token || input.replyToken || ""),
+    message_type: cleanText(input.message_type || input.messageType || input.type || "text"),
+    sender_role: cleanText(input.sender_role || input.senderRole || "user"),
+    sender_id: cleanText(input.sender_id || input.senderId || ""),
+    sender_name: cleanText(input.sender_name || input.senderName || ""),
+    message_text: cleanText(input.message_text || input.messageText || input.text || ""),
+    raw_json: input.raw_json || input.rawJson || input.raw || null,
+    created_at: cleanText(input.created_at || input.createdAt || new Date().toISOString())
+  };
+}
+
+function toLineOaCrmThreadListItem(thread = {}) {
+  return {
+    id: thread.id,
+    name: thread.display_name || thread.source_user_id || thread.source_group_id || "",
+    pictureUrl: thread.picture_url || "",
+    userId: thread.source_user_id || thread.source_group_id || "",
+    status: thread.status || "open",
+    risk: thread.risk_level || "low",
+    summary: thread.summary || "",
+    unread: Number(thread.unread_count || 0),
+    tags: lineOaCrmTags(thread),
+    signals: thread.signals || {},
+    note: thread.note || "",
+    crm: thread.crm || {},
+    lastMessageAt: thread.last_message_at || ""
+  };
+}
+
+function toLineOaCrmThreadDetail(thread = {}) {
+  return {
+    ...toLineOaCrmThreadListItem(thread),
+    sourceType: thread.source_type || "line_oa",
+    messages: Array.isArray(thread.messages) ? thread.messages.map((msg) => ({
+      id: msg.id,
+      type: msg.message_type || "text",
+      senderRole: msg.sender_role || "user",
+      senderId: msg.sender_id || "",
+      senderName: msg.sender_name || "",
+      text: msg.message_text || "",
+      rawText: msg.message_text || "",
+      createdAt: msg.created_at || ""
+    })) : [],
+    raw: thread
+  };
+}
+
+function normalizeLineOaCrmImportMembers(body = {}) {
+  const out = [];
+  const pushMember = (value, segment = "") => {
+    if (!value) return;
+    if (typeof value === "string") {
+      out.push({ line_user_id: value, segment, tags: segment ? [segment] : [] });
+      return;
+    }
+    if (typeof value === "object") {
+      const lineUserId = cleanText(value.LINE_user_id || value.line_user_id || value.lineUserId || value.userId || value.uid || value.id);
+      if (!lineUserId) return;
+      out.push({
+        ...value,
+        line_user_id: lineUserId,
+        segment: cleanText(value.segment || value.type || segment),
+        tags: mergeLineOaCrmTags(value.tags, segment ? [segment] : [])
+      });
+    }
+  };
+  for (const item of Array.isArray(body.members) ? body.members : []) pushMember(item);
+  for (const [key, value] of Object.entries(body.segments || {})) {
+    for (const item of Array.isArray(value) ? value : []) pushMember(item, key);
+  }
+  for (const key of ["type_1", "type_2", "type_3"]) {
+    for (const item of Array.isArray(body[key]) ? body[key] : []) pushMember(item, key);
+  }
+  return out;
+}
+
+function lineOaCrmThreadId(value) {
+  const raw = cleanText(value);
+  return raw ? `line_${sanitizeId(raw).replace(/^line_/, "")}` : "";
+}
+
+function lineOaCrmTags(thread = {}) {
+  return Array.isArray(thread.tags)
+    ? thread.tags.map((tag) => cleanText(tag)).filter(Boolean)
+    : String(thread.tags || "").split(",").map((tag) => cleanText(tag)).filter(Boolean);
+}
+
+function mergeLineOaCrmTags(existing, added = []) {
+  const tags = [
+    ...(Array.isArray(existing) ? existing : String(existing || "").split(",")),
+    ...(Array.isArray(added) ? added : String(added || "").split(","))
+  ].map((tag) => cleanText(tag)).filter(Boolean);
+  return Array.from(new Set(tags));
+}
+
+function getLineOaCrmEventText(event = {}) {
+  if (event.message?.type === "text") return cleanText(event.message.text);
+  if (event.message?.type === "location") return cleanText(event.message.address || event.message.title || "[location]");
+  if (event.postback) return cleanText(event.postback.data || event.postback.params?.datetime || "[postback]");
+  return cleanText(event.message?.text || event.type || "event");
+}
+
+function summarizeLineOaRisk(text = "") {
+  const value = String(text || "");
+  const high = ["客訴", "退費", "投訴", "生氣", "法律", "報警", "負評"];
+  const medium = ["急", "今天", "現在", "沒收到", "問題", "取消", "改期"];
+  if (high.some((word) => value.includes(word))) return { risk: "high", tags: ["risk:high"] };
+  if (medium.some((word) => value.includes(word))) return { risk: "medium", tags: ["risk:medium"] };
+  return { risk: "low", tags: [] };
+}
+
+function riskWeight(value) {
+  if (value === "high") return 3;
+  if (value === "medium") return 2;
+  return 1;
+}
+
+function strongestRisk(a, b) {
+  return riskWeight(a) >= riskWeight(b) ? a : b;
+}
+
 async function safeGetHubJson(env, path) {
   try {
     return await getJson(env, hubPath(env, path));
@@ -2765,7 +3198,7 @@ function corsHeaders() {
   return {
     "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS",
-    "access-control-allow-headers": "authorization,content-type,x-admin-migration-token"
+    "access-control-allow-headers": "authorization,content-type,x-admin-migration-token,x-hub-admin-token"
   };
 }
 

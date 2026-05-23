@@ -196,6 +196,12 @@ GET  /api/hub/richmenus/templates
 POST /api/hub/richmenus/validate
 POST /api/hub/richmenus/render
 POST /api/hub/richmenus/publish
+GET  /api/hub/line-oa-crm/schema
+GET  /api/hub/line-oa-crm/threads
+GET  /api/hub/line-oa-crm/thread
+GET  /api/hub/line-oa-crm/audience
+POST /api/hub/line-oa-crm/import-members
+POST /api/hub/line-oa-crm/ingest-line-events
 ```
 
 完整 URL 範例：
@@ -297,3 +303,37 @@ console.log(published);
 4. 外部專案只需要讀 SDK 與呼叫公開 API。
 5. V1-V4 的欄位規格以舊系統原版為準，已保留舊資料格式。
 6. 發布 Rich Menu 需要 LINE Channel Access Token，請放後端，不要放瀏覽器。
+
+## 11. LINE OA CRM SDK
+
+CRM 模組沿用 `fangwl591021/hostel` 的聊天室監控模型，但資料改存到 Wasabi JSON，不使用 D1。
+
+```js
+const schema = await hub.lineOaCrm.schema();
+const audience = await hub.lineOaCrm.audience();
+const threads = await hub.lineOaCrm.listThreads({ limit: 100 });
+const thread = await hub.lineOaCrm.getThread(threads.data[0].id);
+```
+
+匯入母站或 hostel 來源的 LINE_user_id：
+
+```js
+await hub.lineOaCrm.importMembers({
+  source: "hostel",
+  segments: {
+    type_1: ["Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"],
+    type_2: [],
+    type_3: []
+  }
+}, MIGRATION_ADMIN_TOKEN);
+```
+
+寫入 LINE webhook events：
+
+```js
+await hub.lineOaCrm.ingestLineEvents({
+  events: lineWebhookPayload.events
+}, MIGRATION_ADMIN_TOKEN);
+```
+
+注意：匯入 `LINE_user_id` 只會建立 CRM 受眾池。姓名、頭像、對話內容要等使用者實際互動，或由專案後端補資料。

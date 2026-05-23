@@ -118,6 +118,28 @@ console.log(rendered.richMenu);</code></pre>
 
 console.log(published);</code></pre>
 
+  <h2>LINE OA CRM SDK</h2>
+  <p>沿用 hostel 的聊天室監控模型，資料改存 Wasabi JSON，不使用 D1。</p>
+  <pre><code>const schema = await hub.lineOaCrm.schema();
+const audience = await hub.lineOaCrm.audience();
+const threads = await hub.lineOaCrm.listThreads({ limit: 100 });
+const thread = await hub.lineOaCrm.getThread(threads.data[0].id);</code></pre>
+
+  <h2>匯入 LINE_user_id</h2>
+  <pre><code>await hub.lineOaCrm.importMembers({
+  source: "hostel",
+  segments: {
+    type_1: ["Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"],
+    type_2: [],
+    type_3: []
+  }
+}, MIGRATION_ADMIN_TOKEN);</code></pre>
+
+  <h2>寫入 LINE Webhook Events</h2>
+  <pre><code>await hub.lineOaCrm.ingestLineEvents({
+  events: lineWebhookPayload.events
+}, MIGRATION_ADMIN_TOKEN);</code></pre>
+
   <h2>注意事項</h2>
   <p>讀模板與產 Flex 不需要 Secret Key。修改模板、Seed 模板才需要 <code>MIGRATION_ADMIN_TOKEN</code>。</p>
   <p>Wasabi Secret Key 不可放在外部專案前端。外部專案只需要讀 SDK 與呼叫公開 API。</p>

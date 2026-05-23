@@ -22,6 +22,7 @@
       <button class="hub-nav-item" data-hub-panel="ecard" type="button">名片 Flex</button>
       <button class="hub-nav-item" data-hub-panel="richmenu" type="button">圖文選單</button>
       <button class="hub-nav-item" data-hub-panel="voom" type="button">VOOM</button>
+      <button class="hub-nav-item" data-hub-panel="crm" type="button">LINE OA CRM</button>
       <button class="hub-nav-item" data-hub-panel="sdk" type="button">SDK</button>
       <a class="hub-nav-item" href="/docs/mycard-legacy-ecard-sdk">SDK 文件</a>
     </nav>
@@ -47,6 +48,7 @@
         <article class="metric"><span>模組</span><strong id="moduleCount">0</strong><small>共用能力</small></article>
         <article class="metric"><span>電子名片模板</span><strong id="ecardCount">0</strong><small>V1-V4</small></article>
         <article class="metric"><span>圖文選單模板</span><strong id="richMenuCount">0</strong><small>Rich Menu</small></article>
+        <article class="metric"><span>LINE OA CRM</span><strong id="crmThreadCount">0</strong><small id="crmMessageCount">0 messages</small></article>
         <article class="metric"><span>儲存</span><strong>Wasabi</strong><small id="storagePrefix">content-hub</small></article>
       </div>
       <section class="hub-card">
@@ -170,6 +172,35 @@
             <h2>???? JSON</h2>
           </div>
           <pre id="voomOutput">{}</pre>
+        </section>
+      </div>
+    </section>
+
+    <section class="hub-panel" id="panel-crm">
+      <div class="hub-two-col">
+        <section class="hub-card">
+          <div class="panel-head">
+            <h2>LINE OA CRM</h2>
+            <button class="ghost-button" id="loadCrmBtn" type="button">讀取 CRM</button>
+          </div>
+          <p class="muted">沿用 hostel 聊天室監控模型，資料改存在 Wasabi JSON。匯入 LINE_user_id 會建立受眾池，姓名頭像與對話會在互動後補齊。</p>
+          <div class="crm-summary-grid">
+            <article><strong id="crmOpenThreads">0</strong><span>open</span></article>
+            <article><strong id="crmRiskThreads">0</strong><span>risk</span></article>
+            <article><strong id="crmUnreadMessages">0</strong><span>unread</span></article>
+          </div>
+          <label>匯入 members JSON
+            <textarea id="crmImportInput" rows="12"></textarea>
+          </label>
+          <button class="primary-button" id="importCrmBtn" type="button">匯入 CRM 名單</button>
+        </section>
+        <section class="hub-card output-card">
+          <div class="panel-head">
+            <h2>CRM Threads</h2>
+            <span class="storage-badge">hostel model</span>
+          </div>
+          <div class="crm-thread-list" id="crmThreadList"></div>
+          <pre id="crmOutput">{}</pre>
         </section>
       </div>
     </section>

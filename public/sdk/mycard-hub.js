@@ -154,6 +154,31 @@ export function createMyCardHub(options = {}) {
     voom: {
       extract: (url) => post("/api/hub/voom/extract", { url }),
       getJob: (jobId) => request(`/api/hub/voom/jobs/${encodeURIComponent(jobId)}`)
+    },
+    lineOaCrm: {
+      schema: () => request("/api/hub/line-oa-crm/schema"),
+      listThreads: (params = {}) => {
+        const query = new URLSearchParams(params);
+        const suffix = query.toString() ? `?${query}` : "";
+        return request(`/api/hub/line-oa-crm/threads${suffix}`);
+      },
+      getThread: (threadId) => request(`/api/hub/line-oa-crm/thread?id=${encodeURIComponent(threadId)}`),
+      saveThread: (thread, adminToken) => request("/api/hub/line-oa-crm/thread", {
+        method: "POST",
+        headers: adminToken ? { "x-hub-admin-token": adminToken } : undefined,
+        body: JSON.stringify({ thread, admin_token: adminToken || undefined })
+      }),
+      audience: () => request("/api/hub/line-oa-crm/audience"),
+      importMembers: (payload, adminToken) => request("/api/hub/line-oa-crm/import-members", {
+        method: "POST",
+        headers: adminToken ? { "x-hub-admin-token": adminToken } : undefined,
+        body: JSON.stringify({ ...(payload || {}), admin_token: adminToken || undefined })
+      }),
+      ingestLineEvents: (payload, adminToken) => request("/api/hub/line-oa-crm/ingest-line-events", {
+        method: "POST",
+        headers: adminToken ? { "x-hub-admin-token": adminToken } : undefined,
+        body: JSON.stringify({ ...(payload || {}), admin_token: adminToken || undefined })
+      })
     }
   };
 }

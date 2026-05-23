@@ -7,7 +7,9 @@ const state = {
   ecardTemplates: [],
   richMenuTemplates: [],
   activeTemplateFilter: "ecard",
-  voomResult: null
+  voomResult: null,
+  crmAudience: null,
+  crmThreads: []
 };
 
 const els = {
@@ -15,6 +17,8 @@ const els = {
   moduleCount: document.querySelector("#moduleCount"),
   ecardCount: document.querySelector("#ecardCount"),
   richMenuCount: document.querySelector("#richMenuCount"),
+  crmThreadCount: document.querySelector("#crmThreadCount"),
+  crmMessageCount: document.querySelector("#crmMessageCount"),
   storagePrefix: document.querySelector("#storagePrefix"),
   moduleGrid: document.querySelector("#moduleGrid"),
   templateList: document.querySelector("#templateList"),
@@ -39,6 +43,12 @@ const els = {
   voomSizeBadge: document.querySelector("#voomSizeBadge"),
   voomVideoUrl: document.querySelector("#voomVideoUrl"),
   voomThumbUrl: document.querySelector("#voomThumbUrl"),
+  crmOpenThreads: document.querySelector("#crmOpenThreads"),
+  crmRiskThreads: document.querySelector("#crmRiskThreads"),
+  crmUnreadMessages: document.querySelector("#crmUnreadMessages"),
+  crmImportInput: document.querySelector("#crmImportInput"),
+  crmOutput: document.querySelector("#crmOutput"),
+  crmThreadList: document.querySelector("#crmThreadList"),
   adminTokenInput: document.querySelector("#adminTokenInput")
 };
 
@@ -81,6 +91,17 @@ const defaultRichMenu = {
       action: { type: "message", text: "mycard" }
     }
   ]
+};
+
+const defaultCrmImport = {
+  source: "hostel",
+  segments: {
+    type_1: [
+      { LINE_user_id: "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", name: "示範會員", tags: ["type_1"] }
+    ],
+    type_2: [],
+    type_3: []
+  }
 };
 
 const legacyTemplateCards = {
@@ -126,14 +147,18 @@ function setOutput(el, value) {
 
 async function loadHub() {
   try {
-    const [modules, ecards, richMenus] = await Promise.all([
+    const [modules, ecards, richMenus, crmAudience, crmThreads] = await Promise.all([
       hub.modules.list(),
       hub.ecard.listTemplates(),
-      hub.richMenu.listTemplates()
+      hub.richMenu.listTemplates(),
+      hub.lineOaCrm.audience().catch(() => ({ data: { overview: {} } })),
+      hub.lineOaCrm.listThreads({ limit: 50 }).catch(() => ({ data: [] }))
     ]);
     state.modules = modules.modules || [];
     state.ecardTemplates = ecards.templates || [];
     state.richMenuTemplates = richMenus.templates || [];
+    state.crmAudience = crmAudience.data || {};
+    state.crmThreads = crmThreads.data || [];
     renderAll(modules.storage);
     showToast("Content Hub loaded");
   } catch (error) {
@@ -145,6 +170,7 @@ function renderAll(storage) {
   els.moduleCount.textContent = state.modules.length;
   els.ecardCount.textContent = state.ecardTemplates.length;
   els.richMenuCount.textContent = state.richMenuTemplates.length;
+  renderCrmPanel();
   els.storagePrefix.textContent = storage?.base_prefix || "content-hub";
   renderModules();
   renderTemplates();
@@ -472,6 +498,63 @@ function gcd(a, b) {
   return x || 1;
 }
 
+function renderCrmPanel() {
+  const overview = state.crmAudience?.overview || {};
+  const risk = Number(overview.highRiskThreads || 0) + Number(overview.mediumRiskThreads || 0);
+  if (els.crmThreadCount) els.crmThreadCount.textContent = overview.totalThreads || state.crmThreads.length || 0;
+  if (els.crmMessageCount) els.crmMessageCount.textContent = `${overview.totalMessages || 0} messages`;
+  if (els.crmOpenThreads) els.crmOpenThreads.textContent = overview.openThreads || 0;
+  if (els.crmRiskThreads) els.crmRiskThreads.textContent = risk;
+  if (els.crmUnreadMessages) els.crmUnreadMessages.textContent = overview.unreadMessages || 0;
+  if (els.crmThreadList) {
+    els.crmThreadList.innerHTML = state.crmThreads.map((thread) => `
+      <article class="crm-thread-item">
+        <strong>${escapeHtml(thread.name || thread.id)}</strong>
+        <span>${escapeHtml(thread.summary || thread.userId || "-")}</span>
+        <small>${escapeHtml(thread.status || "open")} | ${escapeHtml(thread.risk || "low")} | ${(thread.tags || []).map(escapeHtml).join(", ")}</small>
+      </article>
+    `).join("") || `<div class="empty-row">No CRM threads</div>`;
+  }
+  if (els.crmOutput) setOutput(els.crmOutput, {
+    audience: state.crmAudience || {},
+    threads: state.crmThreads.slice(0, 10)
+  });
+}
+
+async function loadCrm() {
+  try {
+    const [audience, threads] = await Promise.all([
+      hub.lineOaCrm.audience(),
+      hub.lineOaCrm.listThreads({ limit: 100 })
+    ]);
+    state.crmAudience = audience.data || {};
+    state.crmThreads = threads.data || [];
+    renderCrmPanel();
+    showToast("CRM loaded");
+  } catch (error) {
+    setOutput(els.crmOutput, { success: false, message: error.message });
+    showToast("CRM load failed");
+  }
+}
+
+async function importCrmMembers() {
+  try {
+    const token = els.adminTokenInput.value.trim();
+    if (!token) {
+      showToast("Enter MIGRATION_ADMIN_TOKEN");
+      return;
+    }
+    const payload = JSON.parse(els.crmImportInput.value || "{}");
+    const result = await hub.lineOaCrm.importMembers(payload, token);
+    setOutput(els.crmOutput, result);
+    await loadCrm();
+    showToast(`Imported ${result.imported || 0} CRM members`);
+  } catch (error) {
+    setOutput(els.crmOutput, { success: false, message: error.message });
+    showToast("CRM import failed");
+  }
+}
+
 async function seedTemplates() {
   try {
     const token = els.adminTokenInput.value.trim();
@@ -539,13 +622,18 @@ els.ecardTemplateSelect.addEventListener("change", loadSelectedTemplateSample);
 document.querySelector("#validateRichMenuBtn").addEventListener("click", validateRichMenu);
 document.querySelector("#extractVoomBtn").addEventListener("click", extractVoom);
 document.querySelector("#copyFlexBtn").addEventListener("click", copyFlex);
+document.querySelector("#loadCrmBtn").addEventListener("click", loadCrm);
+document.querySelector("#importCrmBtn").addEventListener("click", importCrmMembers);
 
 els.ecardDataInput.value = pretty(defaultCardData);
 els.richMenuInput.value = pretty(defaultRichMenu);
+els.crmImportInput.value = pretty(defaultCrmImport);
 setOutput(els.flexOutput, {});
 setOutput(els.richMenuOutput, {});
 setOutput(els.voomOutput, {});
+setOutput(els.crmOutput, {});
 renderEcardPreview(defaultCardData, {}, "ecard-v2-business-card");
 renderRichMenuPreview(defaultRichMenu, []);
 renderVoomPreview({});
+renderCrmPanel();
 loadHub();
