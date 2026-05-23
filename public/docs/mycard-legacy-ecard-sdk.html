@@ -36,7 +36,8 @@
       <tr><td>V2</td><td><code>ecard-v2-business-card</code></td><td>個人名片</td></tr>
       <tr><td>V3</td><td><code>ecard-v3-catalog</code></td><td>商品目錄</td></tr>
       <tr><td>V4</td><td><code>ecard-v4-video-rich-menu</code></td><td>影音圖文選單</td></tr>
-      <tr><td>Rich Menu</td><td><code>rich-menu-basic-2500</code></td><td>LINE 圖文選單</td></tr>
+      <tr><td>Rich Menu</td><td><code>rich-menu-basic-2500</code></td><td>LINE 圖文選單 2500 x 1686</td></tr>
+      <tr><td>Rich Menu Compact</td><td><code>rich-menu-basic-2500x843</code></td><td>LINE 圖文選單 2500 x 843</td></tr>
     </tbody>
   </table>
 
@@ -92,6 +93,13 @@ const templates = await hub.richMenu.listTemplates();
 // 取得標準 2500 x 1686 模板
 const template = await hub.richMenu.getBasicTemplate();
 const config = template.sample_data;
+
+// 取得 2500 x 843 模板
+const compactTemplate = await hub.richMenu.getCompactTemplate();
+const compactConfig = compactTemplate.sample_data;
+
+// 用 ID 取得指定尺寸
+const byId = await hub.richMenu.getTemplate(hub.richMenu.ids.basic2500x843);
 
 // 驗證設定
 const result = await hub.richMenu.validate(config);

@@ -119,6 +119,16 @@ const BUILTIN_TEMPLATE_SAMPLE_DATA = {
       { bounds: { x: 833, y: 843, width: 834, height: 843 }, action: { type: "message", text: "catalog" } },
       { bounds: { x: 1667, y: 843, width: 833, height: 843 }, action: { type: "richmenuswitch", richMenuAliasId: "MENU_SAMPLE", data: "switch-menu" } }
     ]
+  },
+  "rich-menu-basic-2500x843": {
+    name: "MyCard Rich Menu Compact",
+    chatBarText: "Menu",
+    selected: true,
+    size: { width: 2500, height: 843 },
+    areas: [
+      { bounds: { x: 0, y: 0, width: 1250, height: 843 }, action: { type: "uri", uri: "https://myvard.fangwl591021.workers.dev/hub.html" } },
+      { bounds: { x: 1250, y: 0, width: 1250, height: 843 }, action: { type: "message", text: "mycard" } }
+    ]
   }
 };
 
@@ -176,6 +186,17 @@ const BUILTIN_TEMPLATES = [
     version: "1.0.0",
     status: "builtin",
     description: "LINE Rich Menu template with size, chatBarText, areas, and URI/message/richmenuswitch actions.",
+    fields: ["size", "chatBarText", "areas"]
+  },
+  {
+    template_id: "rich-menu-basic-2500x843",
+    module: "rich-menu",
+    kind: "rich-menu",
+    name: "Basic Rich Menu 2500 x 843",
+    source: "mylittlesys",
+    version: "1.0.0",
+    status: "builtin",
+    description: "LINE compact Rich Menu template with 2500 x 843 size and two horizontal action areas.",
     fields: ["size", "chatBarText", "areas"]
   }
 ];

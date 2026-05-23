@@ -15,7 +15,8 @@ export const LEGACY_ECARD_TEMPLATE_ORDER = [
 ];
 
 export const RICH_MENU_TEMPLATE_IDS = {
-  basic2500: "rich-menu-basic-2500"
+  basic2500: "rich-menu-basic-2500",
+  basic2500x843: "rich-menu-basic-2500x843"
 };
 
 export function createMyCardHub(options = {}) {
@@ -79,6 +80,11 @@ export function createMyCardHub(options = {}) {
     return result.template;
   }
 
+  async function getCompactRichMenuTemplate() {
+    const result = await request(`/api/hub/templates/${encodeURIComponent(RICH_MENU_TEMPLATE_IDS.basic2500x843)}`);
+    return result.template;
+  }
+
   return {
     apiBase,
     modules: {
@@ -135,6 +141,8 @@ export function createMyCardHub(options = {}) {
       ids: RICH_MENU_TEMPLATE_IDS,
       listTemplates: () => request("/api/hub/richmenus/templates"),
       getBasicTemplate: getBasicRichMenuTemplate,
+      getCompactTemplate: getCompactRichMenuTemplate,
+      getTemplate: (templateId) => request(`/api/hub/templates/${encodeURIComponent(templateId)}`),
       validate: (config) => post("/api/hub/richmenus/validate", { config }),
       render: (config) => post("/api/hub/richmenus/render", { config }),
       publish: (config, options = {}) => post("/api/hub/richmenus/publish", {

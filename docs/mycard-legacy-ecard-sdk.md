@@ -20,7 +20,8 @@ https://myvard.fangwl591021.workers.dev/sdk/mycard-hub.js
 | V2 | `ecard-v2-business-card` | 個人名片 |
 | V3 | `ecard-v3-catalog` | 商品目錄 |
 | V4 | `ecard-v4-video-rich-menu` | 影音圖文選單 |
-| Rich Menu | `rich-menu-basic-2500` | LINE 圖文選單 |
+| Rich Menu | `rich-menu-basic-2500` | LINE 圖文選單 2500 x 1686 |
+| Rich Menu Compact | `rich-menu-basic-2500x843` | LINE 圖文選單 2500 x 843 |
 
 ## 2. 安裝方式
 
@@ -225,7 +226,25 @@ const config = template.sample_data;
 console.log(config);
 ```
 
-### 9.3 驗證圖文選單設定
+### 9.3 取得 2500 x 843 模板
+
+```js
+const template = await hub.richMenu.getCompactTemplate();
+const config = template.sample_data;
+
+console.log(config.size); // { width: 2500, height: 843 }
+console.log(config.areas);
+```
+
+### 9.4 用 ID 取得指定尺寸
+
+```js
+import { RICH_MENU_TEMPLATE_IDS } from "https://myvard.fangwl591021.workers.dev/sdk/mycard-hub.js";
+
+const template = await hub.richMenu.getTemplate(RICH_MENU_TEMPLATE_IDS.basic2500x843);
+```
+
+### 9.5 驗證圖文選單設定
 
 ```js
 const result = await hub.richMenu.validate({
@@ -250,14 +269,14 @@ console.log(result.issues);
 console.log(result.richMenu);
 ```
 
-### 9.4 產生可用 Rich Menu JSON
+### 9.6 產生可用 Rich Menu JSON
 
 ```js
 const rendered = await hub.richMenu.render(config);
 console.log(rendered.richMenu);
 ```
 
-### 9.5 發布圖文選單
+### 9.7 發布圖文選單
 
 發布需要 LINE Channel Access Token 與圖文選單圖片 base64。這類密鑰不可放在前端，建議只在後端使用。
 
