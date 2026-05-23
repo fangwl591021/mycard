@@ -124,13 +124,38 @@ export default {
         return await handleHubTemplates(request, env);
       }
 
+      if (url.pathname === "/api/hub/templates" && request.method === "POST") {
+        return await handleHubTemplateSave(request, env);
+      }
+
+      if (url.pathname === "/api/hub/seed" && request.method === "POST") {
+        return await handleHubSeed(request, env);
+      }
+
       const hubTemplateRoute = url.pathname.match(/^\/api\/hub\/templates\/([^/]+)$/);
       if (hubTemplateRoute && request.method === "GET") {
         return await handleHubTemplate(request, env, hubTemplateRoute[1]);
       }
 
+      if (hubTemplateRoute && request.method === "DELETE") {
+        return await handleHubTemplateDelete(request, env, hubTemplateRoute[1]);
+      }
+
+      if (url.pathname === "/api/hub/richmenus/templates" && request.method === "GET") {
+        return await handleHubRichMenuTemplates(request, env);
+      }
+
       if ((url.pathname === "/api/hub/ecard/render" || url.pathname === "/api/hub/ecard/flex") && request.method === "POST") {
         return await handleHubEcardFlex(request, env);
+      }
+
+      if (url.pathname === "/api/hub/assets/upload" && request.method === "POST") {
+        return await handleHubAssetUpload(request, env);
+      }
+
+      const hubAssetRoute = url.pathname.match(/^\/api\/hub\/assets\/([^/]+)$/);
+      if (hubAssetRoute && request.method === "GET") {
+        return await handleHubAsset(request, env, hubAssetRoute[1]);
       }
 
       if (url.pathname === "/api/hub/richmenus/validate" && request.method === "POST") {
@@ -262,10 +287,49 @@ async function handleHubTemplates(request, env) {
   return hubJson({ templates, count: templates.length });
 }
 
+async function handleHubRichMenuTemplates(_request, env) {
+  const templates = await loadHubTemplates(env, "rich-menu");
+  return hubJson({ templates, count: templates.length });
+}
+
 async function handleHubTemplate(_request, env, templateId) {
   const template = await loadHubTemplate(env, templateId);
   if (!template) throw new HttpError(404, "template_not_found", "Template not found");
   return hubJson({ template });
+}
+
+async function handleHubTemplateSave(request, env) {
+  requireHubAdmin(request, env);
+  const body = await request.json().catch(() => ({}));
+  const template = normalizeHubTemplate(body.template || body);
+  await putHubTemplate(env, template);
+  return hubJson({ template, saved: true });
+}
+
+async function handleHubTemplateDelete(request, env, templateId) {
+  requireHubAdmin(request, env);
+  const existing = await loadHubTemplate(env, templateId);
+  if (!existing) throw new HttpError(404, "template_not_found", "Template not found");
+  if (existing.status === "builtin") throw new HttpError(400, "builtin_template_readonly", "Builtin templates cannot be deleted");
+  const moduleId = sanitizeHubType(existing.module);
+  const safeTemplateId = sanitizeId(templateId);
+  await deleteObject(env, hubPath(env, `modules/${moduleId}/templates/${safeTemplateId}.json`));
+  const index = await safeGetHubJson(env, `modules/${moduleId}/indexes/templates.json`) || { templates: [] };
+  index.templates = (index.templates || []).filter((item) => sanitizeId(typeof item === "string" ? item : item.template_id) !== safeTemplateId);
+  index.updated_at = new Date().toISOString();
+  await safePutHubJson(env, `modules/${moduleId}/indexes/templates.json`, index);
+  return hubJson({ deleted: true, template_id: safeTemplateId });
+}
+
+async function handleHubSeed(request, env) {
+  requireHubAdmin(request, env);
+  const saved = [];
+  for (const template of BUILTIN_TEMPLATES) {
+    const stored = { ...template, status: "seeded", seeded_from: "builtin", seeded_at: new Date().toISOString() };
+    await putHubTemplate(env, stored);
+    saved.push(stored.template_id);
+  }
+  return hubJson({ seeded: saved.length, templates: saved });
 }
 
 async function handleHubEcardFlex(request, env) {
@@ -284,6 +348,52 @@ async function handleHubEcardFlex(request, env) {
     preview: {
       title: input.name || input.title || input.company || template.name,
       altText: `${input.name || input.company || "電子名片"}`
+    }
+  });
+}
+
+async function handleHubAssetUpload(request, env) {
+  requireHubAdmin(request, env);
+  const body = await request.json().catch(() => ({}));
+  const contentType = cleanText(body.content_type || body.contentType || "application/octet-stream").toLowerCase();
+  const filename = cleanFilename(body.filename || `asset-${Date.now()}`);
+  const moduleId = sanitizeHubType(body.module || "shared") || "shared";
+  const base64 = cleanText(body.base64 || body.data || "").replace(/^data:[^;]+;base64,/, "");
+  if (!base64) throw new HttpError(400, "missing_asset_base64", "Missing base64 asset data");
+  if (!isAllowedHubAssetType(contentType, filename)) throw new HttpError(400, "unsupported_asset_type", "Unsupported asset type");
+  const bytes = base64ToBytes(base64);
+  if (bytes.byteLength > MAX_IMAGE_BYTES) throw new HttpError(400, "asset_too_large", "Asset is too large");
+  const now = new Date();
+  const ext = fileExtension(filename, contentType);
+  const assetId = `asset_${Date.now()}_${randomString(8)}`;
+  const objectKey = hubPath(env, `assets/${moduleId}/${now.getUTCFullYear()}/${pad2(now.getUTCMonth() + 1)}/${assetId}.${ext}`);
+  await putObject(env, objectKey, bytes, contentType);
+  const record = {
+    asset_id: assetId,
+    module: moduleId,
+    filename,
+    content_type: contentType,
+    size: bytes.byteLength,
+    object_key: objectKey,
+    api_url: `${appBaseUrl(env)}/api/hub/assets/${assetId}`,
+    created_at: now.toISOString()
+  };
+  await safePutHubJson(env, `assets/index/${assetId}.json`, record);
+  return hubJson({ asset: record });
+}
+
+async function handleHubAsset(_request, env, assetId) {
+  const safeAssetId = sanitizeId(assetId);
+  const record = await safeGetHubJson(env, `assets/index/${safeAssetId}.json`);
+  if (!record) throw new HttpError(404, "asset_not_found", "Asset not found");
+  const response = await getObject(env, record.object_key);
+  if (!response.ok) throw await wasabiError(response, "asset_get_failed");
+  return new Response(response.body, {
+    status: 200,
+    headers: {
+      "content-type": record.content_type || "application/octet-stream",
+      "cache-control": "public, max-age=86400",
+      ...corsHeaders()
     }
   });
 }
@@ -1593,8 +1703,9 @@ async function loadHubTemplates(env, type = "") {
   const stored = [];
   for (const item of ids.slice(0, 200)) {
     const id = sanitizeId(typeof item === "string" ? item : item.template_id);
+    const moduleId = sanitizeHubType(typeof item === "object" ? item.module : type) || type || "ecard";
     if (!id) continue;
-    const template = await safeGetHubJson(env, `modules/${type || "ecard"}/templates/${id}.json`);
+    const template = await safeGetHubJson(env, `modules/${moduleId}/templates/${id}.json`);
     if (template) stored.push(template);
   }
   const byId = new Map([...builtin, ...stored].map((item) => [item.template_id, item]));
@@ -1633,6 +1744,85 @@ async function safePutHubJson(env, path, value) {
 
 function hubPath(env, path) {
   return appPath(env, `content-hub/${String(path || "").replace(/^\/+/, "")}`);
+}
+
+function requireHubAdmin(request, env) {
+  const expected = env.HUB_ADMIN_TOKEN || env.MIGRATION_ADMIN_TOKEN || "";
+  if (!expected) throw new HttpError(503, "hub_admin_disabled", "HUB_ADMIN_TOKEN is not configured");
+  const provided = request.headers.get("x-hub-admin-token") || request.headers.get("x-admin-migration-token") || "";
+  if (!provided || provided !== expected) throw new HttpError(401, "hub_admin_unauthorized", "Invalid hub admin token");
+}
+
+function normalizeHubTemplate(input = {}) {
+  const templateId = sanitizeId(input.template_id || input.templateId || input.id);
+  const moduleId = sanitizeHubType(input.module || input.type || "ecard");
+  if (!templateId) throw new HttpError(400, "missing_template_id", "template_id is required");
+  if (!moduleId) throw new HttpError(400, "missing_template_module", "module is required");
+  const now = new Date().toISOString();
+  return {
+    ...input,
+    template_id: templateId,
+    module: moduleId,
+    kind: cleanText(input.kind || (moduleId === "rich-menu" ? "rich-menu" : "flex")),
+    name: cleanText(input.name || templateId),
+    source: cleanText(input.source || "mycard-content-hub"),
+    version: cleanText(input.version || "1.0.0"),
+    status: cleanText(input.status || "custom"),
+    fields: Array.isArray(input.fields) ? input.fields.map(cleanText).filter(Boolean) : [],
+    updated_at: now,
+    created_at: input.created_at || now
+  };
+}
+
+async function putHubTemplate(env, template) {
+  const normalized = normalizeHubTemplate(template);
+  const moduleId = sanitizeHubType(normalized.module);
+  await putJson(env, hubPath(env, `modules/${moduleId}/templates/${normalized.template_id}.json`), normalized);
+  await upsertHubTemplateIndex(env, `modules/${moduleId}/indexes/templates.json`, normalized);
+  await upsertHubTemplateIndex(env, "indexes/templates.json", normalized);
+  return normalized;
+}
+
+async function upsertHubTemplateIndex(env, path, template) {
+  const index = await safeGetHubJson(env, path) || { templates: [] };
+  const summary = {
+    template_id: template.template_id,
+    module: template.module,
+    kind: template.kind,
+    name: template.name,
+    version: template.version,
+    status: template.status,
+    updated_at: template.updated_at
+  };
+  index.templates = [summary, ...(index.templates || []).filter((item) => sanitizeId(typeof item === "string" ? item : item.template_id) !== template.template_id)];
+  index.updated_at = new Date().toISOString();
+  await putJson(env, hubPath(env, path), index);
+}
+
+function cleanFilename(value) {
+  return String(value || "")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || `asset-${Date.now()}`;
+}
+
+function isAllowedHubAssetType(contentType, filename) {
+  const ext = String(filename || "").split(".").pop()?.toLowerCase() || "";
+  const allowedExt = new Set(["jpg", "jpeg", "png", "webp", "gif", "mp4", "pdf", "json"]);
+  return allowedExt.has(ext) || /^(image\/(jpeg|png|webp|gif)|video\/mp4|application\/pdf|application\/json)/i.test(contentType);
+}
+
+function fileExtension(filename, contentType) {
+  const ext = String(filename || "").split(".").pop()?.toLowerCase();
+  if (ext && /^[a-z0-9]{2,8}$/.test(ext)) return ext;
+  if (contentType.includes("png")) return "png";
+  if (contentType.includes("webp")) return "webp";
+  if (contentType.includes("gif")) return "gif";
+  if (contentType.includes("mp4")) return "mp4";
+  if (contentType.includes("pdf")) return "pdf";
+  if (contentType.includes("json")) return "json";
+  return "jpg";
 }
 
 function buildEcardFlex(template, input = {}) {

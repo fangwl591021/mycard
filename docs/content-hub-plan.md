@@ -183,11 +183,23 @@ await hub.voom.getJob(jobId);
 GET  /api/hub/modules
 GET  /api/hub/templates
 GET  /api/hub/templates/{template_id}
+POST /api/hub/templates
+DELETE /api/hub/templates/{template_id}
+POST /api/hub/seed
 POST /api/hub/assets/upload
 GET  /api/hub/assets/{asset_id}/signed-url
+GET  /api/hub/assets/{asset_id}
 POST /api/hub/render/flex
 GET  /sdk/mycard-hub.js
 ```
+
+寫入型 API 必須使用後端或管理端呼叫，並帶入：
+
+```text
+x-hub-admin-token: {HUB_ADMIN_TOKEN}
+```
+
+公開專案只能使用讀取、render 與 SDK 呼叫，不得持有 Wasabi Secret，也不得持有 hub admin token。
 
 回應格式固定：
 

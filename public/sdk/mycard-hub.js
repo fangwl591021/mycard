@@ -39,7 +39,28 @@ export function createMyCardHub(options = {}) {
         const suffix = query.toString() ? `?${query}` : "";
         return request(`/api/hub/templates${suffix}`);
       },
-      get: (templateId) => request(`/api/hub/templates/${encodeURIComponent(templateId)}`)
+      get: (templateId) => request(`/api/hub/templates/${encodeURIComponent(templateId)}`),
+      save: (template, adminToken) => request("/api/hub/templates", {
+        method: "POST",
+        headers: adminToken ? { "x-hub-admin-token": adminToken } : undefined,
+        body: JSON.stringify(template || {})
+      }),
+      delete: (templateId, adminToken) => request(`/api/hub/templates/${encodeURIComponent(templateId)}`, {
+        method: "DELETE",
+        headers: adminToken ? { "x-hub-admin-token": adminToken } : undefined
+      })
+    },
+    seed: (adminToken) => request("/api/hub/seed", {
+      method: "POST",
+      headers: adminToken ? { "x-hub-admin-token": adminToken } : undefined
+    }),
+    assets: {
+      upload: (asset, adminToken) => request("/api/hub/assets/upload", {
+        method: "POST",
+        headers: adminToken ? { "x-hub-admin-token": adminToken, "content-type": "application/json" } : undefined,
+        body: JSON.stringify(asset || {})
+      }),
+      url: (assetId) => `${apiBase}/api/hub/assets/${encodeURIComponent(assetId)}`
     },
     ecard: {
       listTemplates: () => request("/api/hub/templates?type=ecard"),
@@ -48,6 +69,7 @@ export function createMyCardHub(options = {}) {
       generateFlex: (templateId, data = {}) => post("/api/hub/ecard/flex", { template_id: templateId, data })
     },
     richMenu: {
+      listTemplates: () => request("/api/hub/richmenus/templates"),
       validate: (config) => post("/api/hub/richmenus/validate", { config }),
       render: (config) => post("/api/hub/richmenus/render", { config }),
       publish: (config, options = {}) => post("/api/hub/richmenus/publish", {

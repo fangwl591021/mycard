@@ -37,13 +37,25 @@ GET  /api/hub/modules
 GET  /api/hub/templates
 GET  /api/hub/templates?type=ecard
 GET  /api/hub/templates/{template_id}
+POST /api/hub/templates
+DELETE /api/hub/templates/{template_id}
+POST /api/hub/seed
 POST /api/hub/ecard/render
 POST /api/hub/ecard/flex
+GET  /api/hub/richmenus/templates
 POST /api/hub/richmenus/validate
 POST /api/hub/richmenus/render
 POST /api/hub/richmenus/publish
+POST /api/hub/assets/upload
+GET  /api/hub/assets/{asset_id}
 POST /api/hub/voom/extract
 GET  /api/hub/voom/jobs/{job_id}
+```
+
+寫入型 API 需要 header：
+
+```text
+x-hub-admin-token: {HUB_ADMIN_TOKEN}
 ```
 
 ### SDK
@@ -62,6 +74,10 @@ const flex = await hub.ecard.generateFlex("ecard-v2-business-card", {
   title: "創意總監",
   company: "名片王"
 });
+
+await hub.richMenu.listTemplates();
+await hub.templates.save(customTemplate, adminToken);
+await hub.assets.upload(assetPayload, adminToken);
 ```
 
 Worker 開發模式：
