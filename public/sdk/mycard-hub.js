@@ -14,6 +14,10 @@ export const LEGACY_ECARD_TEMPLATE_ORDER = [
   LEGACY_ECARD_TEMPLATE_IDS.v4
 ];
 
+export const RICH_MENU_TEMPLATE_IDS = {
+  basic2500: "rich-menu-basic-2500"
+};
+
 export function createMyCardHub(options = {}) {
   const apiBase = String(options.apiBase || DEFAULT_API_BASE).replace(/\/$/, "");
   const tokenProvider = options.token;
@@ -70,6 +74,11 @@ export function createMyCardHub(options = {}) {
     return post("/api/hub/ecard/flex", { template_id: templateId, data });
   }
 
+  async function getBasicRichMenuTemplate() {
+    const result = await request(`/api/hub/templates/${encodeURIComponent(RICH_MENU_TEMPLATE_IDS.basic2500)}`);
+    return result.template;
+  }
+
   return {
     apiBase,
     modules: {
@@ -123,7 +132,9 @@ export function createMyCardHub(options = {}) {
       }
     },
     richMenu: {
+      ids: RICH_MENU_TEMPLATE_IDS,
       listTemplates: () => request("/api/hub/richmenus/templates"),
+      getBasicTemplate: getBasicRichMenuTemplate,
       validate: (config) => post("/api/hub/richmenus/validate", { config }),
       render: (config) => post("/api/hub/richmenus/render", { config }),
       publish: (config, options = {}) => post("/api/hub/richmenus/publish", {

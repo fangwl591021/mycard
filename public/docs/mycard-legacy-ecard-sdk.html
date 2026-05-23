@@ -21,8 +21,8 @@
 </head>
 <body>
 <main>
-  <h1>名片王 V1-V4 電子名片 SDK 引用文件</h1>
-  <p class="meta">版本：v1.0 ｜ 適用：外部網站、Cloudflare Worker、APP WebView、LIFF、LINE Bot 後端、後台系統</p>
+  <h1>名片王 V1-V4 電子名片 / 圖文選單 SDK 引用文件</h1>
+  <p class="meta">版本：v1.1 ｜ 適用：外部網站、Cloudflare Worker、APP WebView、LIFF、LINE Bot 後端、後台系統</p>
   <a class="download" href="/sdk/mycard-hub.js" download>下載 SDK</a>
 
   <h2>SDK URL</h2>
@@ -36,6 +36,7 @@
       <tr><td>V2</td><td><code>ecard-v2-business-card</code></td><td>個人名片</td></tr>
       <tr><td>V3</td><td><code>ecard-v3-catalog</code></td><td>商品目錄</td></tr>
       <tr><td>V4</td><td><code>ecard-v4-video-rich-menu</code></td><td>影音圖文選單</td></tr>
+      <tr><td>Rich Menu</td><td><code>rich-menu-basic-2500</code></td><td>LINE 圖文選單</td></tr>
     </tbody>
   </table>
 
@@ -80,9 +81,39 @@ console.log(LEGACY_ECARD_TEMPLATE_IDS);
 //   v4: "ecard-v4-video-rich-menu"
 // }</code></pre>
 
+  <h2>圖文選單 SDK</h2>
+  <pre><code>import { createMyCardHub } from "https://myvard.fangwl591021.workers.dev/sdk/mycard-hub.js";
+
+const hub = createMyCardHub();
+
+// 取得所有圖文選單模板
+const templates = await hub.richMenu.listTemplates();
+
+// 取得標準 2500 x 1686 模板
+const template = await hub.richMenu.getBasicTemplate();
+const config = template.sample_data;
+
+// 驗證設定
+const result = await hub.richMenu.validate(config);
+console.log(result.valid, result.issues, result.richMenu);
+
+// 產生可用 Rich Menu JSON
+const rendered = await hub.richMenu.render(config);
+console.log(rendered.richMenu);</code></pre>
+
+  <h2>發布圖文選單</h2>
+  <p>發布需要 LINE Channel Access Token 與圖文選單圖片 base64。請放後端，不要放瀏覽器前端。</p>
+  <pre><code>const published = await hub.richMenu.publish(config, {
+  imageBase64: "data:image/png;base64,...",
+  channelAccessToken: "LINE_CHANNEL_ACCESS_TOKEN"
+});
+
+console.log(published);</code></pre>
+
   <h2>注意事項</h2>
   <p>讀模板與產 Flex 不需要 Secret Key。修改模板、Seed 模板才需要 <code>MIGRATION_ADMIN_TOKEN</code>。</p>
   <p>Wasabi Secret Key 不可放在外部專案前端。外部專案只需要讀 SDK 與呼叫公開 API。</p>
+  <p>發布 Rich Menu 需要 LINE Channel Access Token，請放後端，不要放瀏覽器。</p>
 </main>
 </body>
 </html>
