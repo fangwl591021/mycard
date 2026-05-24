@@ -304,7 +304,7 @@ console.log(published);
 5. V1-V4 的欄位規格以舊系統原版為準，已保留舊資料格式。
 6. 發布 Rich Menu 需要 LINE Channel Access Token，請放後端，不要放瀏覽器。
 
-## 11. LINE OA CRM SDK
+## 11. AI工坊 SDK
 
 CRM 模組沿用 `fangwl591021/hostel` 的聊天室監控模型，但資料改存到 Wasabi JSON，不使用 D1。
 

@@ -27,10 +27,10 @@ const HUB_MODULES = [
   },
   {
     id: "line-oa-crm",
-    name: "LINE OA CRM Monitor",
+    name: "AI工坊",
     type: "tool",
     status: "active",
-    description: "Reusable LINE OA thread, message, member-import, and audience-analysis module adapted from hostel."
+    description: "Reusable LINE OA CRM, thread monitor, member-import, and audience-analysis module adapted from hostel."
   }
 ];
 
